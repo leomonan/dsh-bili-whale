@@ -6,8 +6,8 @@ import path from 'node:path'
 import { createSessionDelivery } from '../lib/session-delivery.js'
 
 function fixture(t, options = {}) {
-  const dshHome = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-session-delivery-'))
-  t.after(() => fs.rmSync(dshHome, { recursive: true, force: true }))
+  const dshHome = options.dshHome ?? fs.mkdtempSync(path.join(os.tmpdir(), 'whale-session-delivery-'))
+  if (!options.dshHome) t.after(() => fs.rmSync(dshHome, { recursive: true, force: true }))
 
   const calls = []
   const clock = { now: options.now ?? 1_000_000 }
