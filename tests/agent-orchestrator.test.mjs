@@ -105,24 +105,23 @@ test('orchestrator fails closed if the model ends without recording a diary', as
   assert.equal(active, null)
 })
 
-test('orchestrator enforces tool-call budget and does not execute tools beyond it', async () => {
+test('orchestrator enforces tool-call budget and refuses completion without diary', async () => {
   const calls = []
-  let n = 0
   const modelClient = {
     async complete() {
-      n += 1
-      if (n === 1) return answer([call('1', 'whale_status'), call('2', 'whale_list_platform_capabilities')])
-      if (n === 2) return answer([call('3', 'whale_record_diary', { entry: 'Budget reached, but diary saved.' })])
-      return answer(null, 'Done.')
+      return answer([
+        call('1', 'whale_status'),
+        call('2', 'whale_list_platform_capabilities'),
+        call('3', 'whale_record_diary', { entry: 'This must not run after the budget is exhausted.' }),
+      ])
     },
   }
   const orchestrator = createAgentOrchestrator({
     modelClient, toolRegistry: registry(calls), platformId: 'rss', maxToolCalls: 2,
   })
-  const result = await orchestrator.runOnce({ runId: 'budget-run' })
-  assert.equal(result.diaryRecorded, true)
-  assert.equal(result.toolCalls, 2)
+  await assert.rejects(orchestrator.runOnce({ runId: 'budget-run' }), /without recording a diary/)
   assert.equal(calls.length, 2)
+  assert.equal(calls.some(call => call.name === 'whale_record_diary'), false)
 })
 
 test('orchestrator rejects invalid configuration and unsupported actions', async () => {
