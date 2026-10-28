@@ -72,4 +72,8 @@ The session-delivery state machine now depends on a host-neutral `SessionTranspo
 
 This is only a first seam: `lib/scheduler.js` still depends on DSH paths, Bilibili polling, and CLI subprocesses. Do not claim the whole runtime is host-independent until those boundaries are extracted and independently tested.
 
+## P1 Gate 2 — inbox IO boundary
+
+Bilibili comment/reply/mention reads and the network pause check are now encapsulated in `lib/bilibili-inbox-source.js`. The scheduler accepts an injected `inboxSource`; its cursor, first-run baseline, deduplication, polling interval, failure backoff and delivery rules remain in the scheduler. Unit tests cover `reply` versus combined scope and fail-closed credential/traffic-pause behavior. DM CLI polling and live-room subprocesses remain Bilibili-specific and are not yet extracted.
+
 Until all unchecked items pass, do not claim the core runtime is independent of DSH.
