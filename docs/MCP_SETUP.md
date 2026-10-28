@@ -96,3 +96,20 @@ Model API usage is billed by the selected model provider and is separate from a 
 ## External Agent handoff
 
 The MCP server exposes `whale_submit_task`, `whale_list_tasks`, `whale_claim_task`, `whale_complete_task`, and `whale_release_task`. These operate only on the local task queue and shared private memory. Claiming a task returns a time-limited lease token; treat it as a secret and use it only for that task. Only one external Agent may hold a lease at a time. The autonomous daemon defers its scheduled wake while the lease is active, then resumes on a later tick. A task completion is saved into the private Whale diary for the fixed-brain model to use on a later wake.
+
+
+## Remote HTTP MCP endpoint
+
+For Agent clients that accept remote Streamable HTTP MCP servers, the branch also provides `npm run mcp:http`.
+
+Required configuration:
+
+- `WHALE_MCP_AUTH_TOKEN`: a random secret of at least 32 characters. Generate one locally, for example with `openssl rand -hex 32`; do not commit it.
+- `WHALE_MCP_HOST`: defaults to `127.0.0.1`.
+- `WHALE_MCP_PORT`: defaults to `8765`.
+- `WHALE_MCP_ALLOWED_ORIGINS`: comma-separated exact origins when binding to a non-loopback host or serving browser-based clients.
+- `WHALE_PLATFORM`, `WHALE_HOME`, and `WHALE_RSS_FEEDS` as needed for the selected platform.
+
+The HTTP server supports authenticated JSON POST requests to `/mcp`, MCP session IDs, session expiry, DELETE session cleanup, strict request-size limits, and exact Origin allowlisting. It does not implement OAuth discovery or server-sent event streams. Some hosted Agent clients may require OAuth or a different remote-server registration flow; the static bearer-token example is not guaranteed to satisfy every host.
+
+The server binds to loopback by default. To make it reachable remotely, place it behind a TLS-terminating reverse proxy or an equivalent HTTPS gateway, keep the bearer token secret, configure exact allowed origins, and avoid exposing the raw HTTP listener directly to the public internet. Use [mcp.remote.json.example](../mcp.remote.json.example) as a generic client configuration example and adapt it to the selected Agent's supported configuration format.
