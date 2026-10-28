@@ -34,7 +34,8 @@ When the user asks an external Agent to take over a specific Whale task:
 
 1. Submit a local task with `whale_submit_task` and a stable `request_id` if retries are possible.
 2. Call `whale_claim_task` only when ready to work. A claim creates a time-limited exclusive control lease; only one external Agent may hold it at a time.
-3. Keep `lease_token` private. Do not include it in diary text, task results, public platform content, or unrelated messages.
-4. Complete the task with `whale_complete_task`, providing a concise, truthful result. Completion stores the result in Whale's private diary so its fixed-brain daemon can use it later.
-5. If unable to finish, call `whale_release_task`; otherwise the lease expires automatically after its TTL.
-6. Never use handoff tools to bypass platform policy or to perform public account writes. The daemon pauses scheduled wake execution while an external lease is active, then resumes on a later tick after completion, release, or expiry.
+3. For long tasks, call `whale_renew_task` before the lease expires. Expired leases cannot be renewed; reclaim the task if it has returned to pending.
+4. Keep `lease_token` private. Do not include it in diary text, task results, public platform content, or unrelated messages.
+5. Complete the task with `whale_complete_task`, providing a concise, truthful result. Completion stores the result in Whale's private diary so its fixed-brain daemon can use it later.
+6. If unable to finish, call `whale_release_task`; otherwise the lease expires automatically after its TTL.
+7. Never use handoff tools to bypass platform policy or to perform public account writes. The daemon pauses scheduled wake execution while an external lease is active, then resumes on a later tick after completion, release, or expiry.
