@@ -21,7 +21,17 @@
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./platform-runtime": "./lib/platform-runtime-contract.js",
+    "./platform-loader": "./lib/platform-loader.js",
+    "./rss-runtime": "./lib/rss-runtime.js",
+    "./mcp-server": "./lib/mcp-server.js",
+    "./mcp-http-server": "./lib/mcp-http-server.js",
+    "./memory": "./lib/memory-store.js",
+    "./control-lease": "./lib/control-lease-store.js",
+    "./model-client": "./lib/model-client.js",
+    "./agent-orchestrator": "./lib/agent-orchestrator.js",
+    "./autonomous-scheduler": "./lib/autonomous-scheduler.js"
   },
   "files": [
     "lib",
