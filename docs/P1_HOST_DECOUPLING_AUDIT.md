@@ -77,3 +77,10 @@ This is only a first seam: `lib/scheduler.js` still depends on DSH paths, Bilibi
 Bilibili comment/reply/mention reads and the network pause check are now encapsulated in `lib/bilibili-inbox-source.js`. The scheduler accepts an injected `inboxSource`; its cursor, first-run baseline, deduplication, polling interval, failure backoff and delivery rules remain in the scheduler. Unit tests cover `reply` versus combined scope and fail-closed credential/traffic-pause behavior. DM CLI polling, response/exit-code parsing, and receipt acknowledgement now live in `lib/bilibili-dm-source.js`; the scheduler retains the retry, delivery and acknowledgement state machine. Live-room subprocess construction now lives in `lib/bilibili-live-source.js`; the scheduler retains hit parsing, delivery, stop/restart, and retry decisions. The platform-specific IO is now composed by `lib/bilibili-runtime.js`; the scheduler consumes injected `inboxSource`, `dmSource`, and `liveSource` ports. The remaining DSH coupling is session/lifecycle/path ownership and scheduler-owned Bilibili workflow prompts.
 
 Until all unchecked items pass, do not claim the core runtime is independent of DSH.
+
+
+## P1 Gate 6 — scheduler host capability boundary
+
+The generic scheduler now accepts a host capability object rather than a DSH context. Direct DSH session-controller checks, session-file discovery, session activity cache, and DSH transport construction moved to `lib/dsh-scheduler-host.js`. The plugin entrypoint and scheduler integration test helpers use the DSH compatibility entrypoint; the core scheduler sees only `transport`, `canDeliver()`, `isSessionBusy()`, and `setSessionId()`.
+
+This removes direct DSH session-controller and session-file assumptions from `lib/scheduler.js`, but not all DSH path semantics. Config/state directory injection and workflow-prompt extraction remain follow-up gates. Do not claim the entire application is host-neutral yet.
