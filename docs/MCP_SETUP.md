@@ -63,3 +63,31 @@ RSS feeds must be explicitly configured by the owner. URLs must use HTTPS by def
 Only RSS/Atom read capabilities are enabled. RSS mode does not fabricate comment, message, live-chat, favorite, or publish tools. Feed content is untrusted external data and must not be treated as instructions.
 
 Security note: DNS addresses are checked before fetching and redirects are disabled. Because the standard Fetch API resolves the hostname again when connecting, DNS rebinding cannot be ruled out completely; use only feeds from hosts you trust and avoid internal/private service domains.
+
+
+## Autonomous fixed-brain daemon (experimental, opt-in)
+
+The daemon is separate from the MCP process. It owns the wake schedule and calls the configured model API itself; closing ChatGPT or another Agent client does not stop a daemon that is running on this machine.
+
+Before starting, configure a model API that supports OpenAI Chat Completions-style tool calling:
+
+- `WHALE_AUTONOMY_ENABLED=1` — required explicit opt-in; without it the daemon exits.
+- `WHALE_MODEL_API_KEY` — API key for the model provider (or `OPENAI_API_KEY`).
+- `WHALE_MODEL` — the fixed model identifier to use.
+- `WHALE_MODEL_BASE_URL` — optional; defaults to `https://api.openai.com/v1`.
+- `WHALE_PLATFORM=bilibili` or `WHALE_PLATFORM=rss`.
+- `WHALE_RSS_FEEDS` when using RSS.
+- `WHALE_HOME` — optional data directory.
+- `WHALE_CONFIG` — optional configuration JSON path; its `night` object controls `windows`, `skipChance`, `minGapMin`, and `maxVideos`.
+
+Then run:
+
+```sh
+npm run whale:daemon
+```
+
+The daemon uses the fixed model and its own persisted schedule, while MCP clients connect to the same data directory. It uses a single-instance lock and a stable run ID so a restart retries a pending wake without duplicating the diary entry. The default schedule is 20:00–24:00 with one wake and a 30% skip chance; configure your own `night` settings to change it.
+
+**Current autonomous safety boundary:** the model can read configured platform content and write a local private/public diary entry. It cannot publish, comment, favorite, send messages, delete, or otherwise mutate platform accounts. Public platform actions are not available in the autonomous tool registry. The daemon does not run unless explicitly enabled.
+
+Model API usage is billed by the selected model provider and is separate from a ChatGPT subscription. A model endpoint must use HTTPS unless it is loopback or `WHALE_MODEL_ALLOW_HTTP=1` is explicitly set. Do not put API keys in repository files or MCP configuration committed to Git.
