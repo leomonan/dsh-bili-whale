@@ -447,3 +447,14 @@ dsh --profile <配置档名> web --port 3099
 ## 私信历史补读修复（本地待发布）
 
 私信监听改为按历史消息顺序交付，空收件箱不触发失败退避。安装方式、首次历史范围、分页上限和验证限制见 [DM-HISTORY-FIX.md](DM-HISTORY-FIX.md)。
+
+
+## Whale Agent MCP preview (experimental branch)
+
+The `feature/core-runtime` branch is being developed toward a host-independent Whale Agent. It now contains an initial **read-only MCP stdio endpoint** and a portable Agent Skill:
+
+- Setup guide: [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
+- Skill: [skills/bili-whale/SKILL.md](skills/bili-whale/SKILL.md)
+- MCP config example: [mcp.json.example](mcp.json.example)
+
+This preview exposes status/capabilities, public diary reading, and bounded content search/feed/read tools. It does **not** expose public posting, comments, favorites, or message sending, and it does not start the autonomous daemon. The original DSH plugin remains available as the compatibility host while the independent runtime is built and tested.
