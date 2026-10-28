@@ -130,3 +130,8 @@ Added an opt-in daemon with a persisted wake plan, stable run IDs across retries
 ## P3 Gate 16 — external Agent task handoff lease
 
 Added a local task queue with idempotent request IDs, one global active lease, expiring claims, secret lease tokens stored only as hashes, complete/release operations, and private-memory recording of task results. Public MCP clients can submit/list/claim/complete/release local tasks, but these tools cannot mutate external platform accounts. The autonomous scheduler defers a due wake while an external task lease is active; it resumes on a later tick after completion, release, or expiry. Tests cover lease lifecycle, invalid tokens, expiry, private-memory recording, and scheduler deferral.
+
+
+## P3 Gate 17 — full-journal private memory recall
+
+Added a streaming journal scanner and bounded keyword search across the complete append-only diary file. Results return short excerpts only and are visibility-filtered. The private search tool is included only in the daemon's local registry; public MCP clients cannot invoke it. Run-ID idempotency also scans the full journal rather than only the display tail, so old retries remain deduplicated after the diary grows beyond 1 MB. A local mock-model process E2E now verifies daemon startup, tool calls, private diary persistence, and completed wake state without incurring a real model API charge.
