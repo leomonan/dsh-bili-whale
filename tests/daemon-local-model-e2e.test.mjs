@@ -101,9 +101,14 @@ test('opt-in daemon completes one wake through a local mock model API without pa
   })
 
   const journal = path.join(dataHome, 'whale-agent-memory.jsonl')
+  const scheduleFile = path.join(dataHome, 'whale-night.json')
   const deadline = Date.now() + 15_000
-  while (Date.now() < deadline && (!fs.existsSync(journal) || requests < 3) && !exited) await delay(100)
+  const completed = () => {
+    try { return JSON.parse(fs.readFileSync(scheduleFile, 'utf8')).fired === true } catch { return false }
+  }
+  while (Date.now() < deadline && (!fs.existsSync(journal) || requests < 3 || !completed()) && !exited) await delay(100)
   assert.equal(fs.existsSync(journal), true, 'daemon should record its private diary entry; stderr: ' + stderr)
+  assert.equal(completed(), true, 'daemon should persist completed wake state; stderr: ' + stderr)
   const entries = fs.readFileSync(journal, 'utf8').trim().split(/\r?\n/).map(line => JSON.parse(line))
   assert.equal(entries.length, 1)
   assert.match(entries[0].entry, /local mocked wake/)
