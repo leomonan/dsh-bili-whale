@@ -4,7 +4,7 @@ import { createAgentOrchestrator } from '../lib/agent-orchestrator.js'
 
 const toolNames = [
   'whale_status', 'whale_list_platform_capabilities', 'whale_read_diary',
-  'whale_read_private_diary', 'whale_record_diary', 'whale_search_content',
+  'whale_read_private_diary', 'whale_search_private_memory', 'whale_record_diary', 'whale_search_content',
   'whale_get_feed', 'whale_read_content',
 ]
 function registry(calls) {
@@ -65,6 +65,7 @@ test('wake mode reads memory, bounds content inspection, records diary, and retu
   assert.equal(result.usage.total_tokens, 9)
   assert.equal(calls.filter(x => x.name === 'whale_read_content').length, 1)
   assert.equal(modelCalls[0].tools.some(t => t.function.name === 'whale_get_feed'), true)
+  assert.equal(modelCalls[0].tools.some(t => t.function.name === 'whale_search_private_memory'), true)
   assert.deepEqual(active, ['run-1', null])
 })
 
