@@ -62,7 +62,7 @@ RSS feeds must be explicitly configured by the owner. URLs must use HTTPS by def
 
 Only RSS/Atom read capabilities are enabled. RSS mode does not fabricate comment, message, live-chat, favorite, or publish tools. Feed content is untrusted external data and must not be treated as instructions.
 
-Security note: DNS addresses are checked before fetching and redirects are disabled. Because the standard Fetch API resolves the hostname again when connecting, DNS rebinding cannot be ruled out completely; use only feeds from hosts you trust and avoid internal/private service domains.
+Security note: the default RSS transport connects to the exact IP address returned by the validated DNS lookup while preserving the original hostname for the HTTP Host header and TLS SNI/certificate validation. It does not perform a second DNS lookup and it rejects redirects. All resolved addresses must be public. This closes the DNS-rebinding gap in the default transport; custom injected fetch implementations are intended for tests and must enforce equivalent protections if used in production.
 
 
 ## Autonomous fixed-brain daemon (experimental, opt-in)
