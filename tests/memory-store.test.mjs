@@ -98,3 +98,19 @@ test('memory search finds older entries beyond the diary display window and filt
   assert.equal(f.store.searchDiary({ query: 'whale story', visibility: 'private' }).count, 0)
   assert.equal(f.store.searchDiary({ query: 'whale story', visibility: 'public' }).count, 1)
 })
+
+
+test('shared core memory can read a legacy public diary from the selected platform data home', t => {
+  const f = fixture(t)
+  const platformHome = path.join(f.dir, 'platform-data')
+  fs.mkdirSync(platformHome)
+  fs.writeFileSync(path.join(platformHome, 'whale-diary.md'), 'Legacy Bilibili public memory')
+  const shared = createMemoryStore({
+    stateDir: path.join(f.dir, 'shared-core'),
+    legacyPublicDiaryFile: path.join(platformHome, 'whale-diary.md'),
+  })
+  assert.match(shared.readPublicDiary().text, /Legacy Bilibili public memory/)
+  shared.recordDiary({ runId: 'shared-private', entry: 'Shared across platforms', platform: 'rss' })
+  assert.match(shared.readPrivateDiary().text, /Shared across platforms/)
+  assert.equal(fs.existsSync(path.join(platformHome, 'whale-agent-memory.jsonl')), false)
+})
