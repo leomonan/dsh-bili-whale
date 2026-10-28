@@ -107,13 +107,16 @@ test('orchestrator fails closed if the model ends without recording a diary', as
 
 test('orchestrator enforces tool-call budget and refuses completion without diary', async () => {
   const calls = []
+  let step = 0
   const modelClient = {
     async complete() {
-      return answer([
+      step += 1
+      if (step === 1) return answer([
         call('1', 'whale_status'),
         call('2', 'whale_list_platform_capabilities'),
         call('3', 'whale_record_diary', { entry: 'This must not run after the budget is exhausted.' }),
       ])
+      return answer(null, 'I am done, but no diary tool was allowed.')
     },
   }
   const orchestrator = createAgentOrchestrator({
