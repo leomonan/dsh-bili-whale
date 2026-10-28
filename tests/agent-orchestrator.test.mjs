@@ -17,7 +17,7 @@ function registry(calls, runId = 'run-1') {
     async callTool(name, args) {
       calls.push({ name, args })
       const value = name === 'whale_record_diary'
-        ? { recorded: true, duplicate: false, runId }
+        ? { recorded: true, duplicate: false, runId, visibility: 'private' }
         : { tool: name, data: name === 'whale_get_feed' ? [{ id: 'item-1' }, { id: 'item-2' }] : 'ok' }
       return { content: [{ type: 'text', text: JSON.stringify(value) }] }
     },
