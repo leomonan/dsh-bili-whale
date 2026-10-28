@@ -18,7 +18,7 @@ function fixture(t) {
 test('submit task is idempotent by request ID and public task listing hides lease tokens', t => {
   const f = fixture(t)
   const first = f.control.submitTask({ task: 'Research the latest RSS items', kind: 'research', requestedBy: 'chatgpt', requestId: 'req-1' })
-  const duplicate = f.control.submitTask({ task: 'Different retry text', kind: 'research', requestedBy: 'chatgpt', requestId: 'req-1' })
+  const duplicate = f.control.submitTask({ task: 'Research the latest RSS items', kind: 'research', requestedBy: 'chatgpt', requestId: 'req-1' })
   assert.equal(first.created, true)
   assert.equal(duplicate.duplicate, true)
   assert.equal(first.task.id, duplicate.task.id)
@@ -117,4 +117,17 @@ test('completion fails closed when a retry conflicts with the result already in 
     result: 'New conflicting result.',
   }), /different handoff result/)
   assert.equal(f.control.listTasks()[0].status, 'leased')
+})
+
+
+test('task idempotency key cannot be reused for a different payload', t => {
+  const f = fixture(t)
+  f.control.submitTask({ task: 'Research RSS', kind: 'research', requestedBy: 'chatgpt', requestId: 'same-key' })
+  assert.throws(() => f.control.submitTask({
+    task: 'Publish an announcement',
+    kind: 'other',
+    requestedBy: 'chatgpt',
+    requestId: 'same-key',
+  }), /different task parameters/)
+  assert.equal(f.control.listTasks().length, 1)
 })
