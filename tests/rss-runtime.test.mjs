@@ -42,6 +42,7 @@ function runtime(t, options = {}) {
     },
     now: () => currentTime,
     cacheMs: options.cacheMs ?? 300_000,
+    failureCacheMs: options.failureCacheMs,
     maxBytes: options.maxBytes,
   })
   return { rss, calls, advance(ms) { currentTime += ms } }
@@ -158,4 +159,18 @@ test('RSS enforces feed count, query and result limits', async t => {
   const f = runtime(t)
   await assert.rejects(f.rss.content.search({ query: '  ' }), /1–120/)
   await assert.rejects(f.rss.content.feed({ limit: 11 }), /limit/)
+})
+
+
+test('RSS source failures are briefly cached to avoid hammering a failing host', async t => {
+  const f = runtime(t, {
+    failureCacheMs: 1000,
+    fetchImpl: async () => { throw new Error('temporarily offline') },
+  })
+  await assert.rejects(f.rss.content.feed(), /All configured RSS feeds failed/)
+  await assert.rejects(f.rss.content.feed(), /All configured RSS feeds failed/)
+  assert.equal(f.calls.length, 1)
+  f.advance(1001)
+  await assert.rejects(f.rss.content.feed(), /All configured RSS feeds failed/)
+  assert.equal(f.calls.length, 2)
 })
