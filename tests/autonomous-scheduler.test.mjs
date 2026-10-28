@@ -38,12 +38,17 @@ test('due plan runs once and is marked complete only after diary confirmation', 
   assert.equal(f.runs[0].runId, stableRunId(f.runs[0].plan))
 })
 
-test('future plan is persisted but does not call the model', async () => {
+test('future plan is persisted once without repeated disk writes or model calls', async () => {
   const f = fixture({ now: 50 })
   const result = await f.scheduler.tick()
   assert.equal(result.status, 'waiting')
   assert.equal(f.runs.length, 0)
   assert.equal(f.state.action, 'wake')
+  const writesAfterPlan = f.writes.length
+  const second = await f.scheduler.tick()
+  assert.equal(second.status, 'waiting')
+  assert.equal(f.writes.length, writesAfterPlan)
+  assert.equal(f.runs.length, 0)
 })
 
 test('failed run retains the same pending plan and stable run ID for idempotent retry', async () => {
