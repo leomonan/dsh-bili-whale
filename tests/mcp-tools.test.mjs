@@ -130,8 +130,15 @@ test('daemon-only diary tools are not exposed by the public MCP registry', async
   assert.match(privateRead.content[0].text, /Private autonomous reflection/)
   const recalled = await daemonRegistry.callTool('whale_search_private_memory', { query: 'Private autonomous', limit: 5 })
   assert.match(recalled.content[0].text, /Private autonomous reflection/)
+  activeRunId = 'daemon-run-public-attempt'
+  const forcedPrivate = await daemonRegistry.callTool('whale_record_diary', {
+    entry: 'A model attempted to request public visibility.',
+    visibility: 'public',
+  })
+  assert.equal(JSON.parse(forcedPrivate.content[0].text).visibility, 'private')
   const publicRead = await publicRegistry.callTool('whale_read_diary', { max_chars: 1000 })
   assert.doesNotMatch(publicRead.content[0].text, /Private autonomous reflection/)
+  assert.doesNotMatch(publicRead.content[0].text, /attempted to request public visibility/)
   const status = JSON.parse((await daemonRegistry.callTool('whale_status', {})).content[0].text)
   assert.equal(status.schedulerManaged, true)
   assert.equal(status.mode, 'autonomous')
