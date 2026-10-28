@@ -84,3 +84,7 @@ Until all unchecked items pass, do not claim the core runtime is independent of 
 The generic scheduler now accepts a host capability object rather than a DSH context. Direct DSH session-controller checks, session-file discovery, session activity cache, and DSH transport construction moved to `lib/dsh-scheduler-host.js`. The plugin entrypoint and scheduler integration test helpers use the DSH compatibility entrypoint; the core scheduler sees only `transport`, `canDeliver()`, `isSessionBusy()`, and `setSessionId()`.
 
 This removes direct DSH session-controller and session-file assumptions from `lib/scheduler.js`, but not all DSH path semantics. Config/state directory injection and workflow-prompt extraction remain follow-up gates. Do not claim the entire application is host-neutral yet.
+
+## P1 Gate 7 — Bilibili wake workflow extraction
+
+The Bilibili wake prompt and its feedback/daily-push context helpers now live in `lib/bilibili-workflows.js`, constructed with explicit config and home paths. The scheduler calls the workflow interface instead of owning the wake prompt text. This is an incremental extraction; comment, DM and live event prompt bodies are still inline in the scheduler and remain the next workflow extraction target.
