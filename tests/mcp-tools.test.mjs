@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { createWhaleMcpTools } from '../lib/mcp-tools.js'
 import { createMemoryStore } from '../lib/memory-store.js'
+import { createControlLeaseStore } from '../lib/control-lease-store.js'
 
 function fixture(t, options = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-mcp-tools-'))
@@ -130,4 +131,55 @@ test('daemon-only diary tools are not exposed by the public MCP registry', async
   const status = JSON.parse((await daemonRegistry.callTool('whale_status', {})).content[0].text)
   assert.equal(status.schedulerManaged, true)
   assert.equal(status.mode, 'autonomous')
+})
+
+
+test('MCP external Agent can claim and complete a local task without platform writes', async t => {
+  const f = fixture(t)
+  const memoryStore = createMemoryStore({ stateDir: f.stateDir })
+  const controlLeaseStore = createControlLeaseStore({ stateDir: f.stateDir, memoryStore })
+  const registry = createWhaleMcpTools({
+    platformRuntime: f.platformRuntime,
+    stateDir: f.stateDir,
+    homeDir: path.dirname(f.credentialsFile),
+    credentialsFile: f.credentialsFile,
+    memoryStore,
+    controlLeaseStore,
+    allowTaskHandoff: true,
+  })
+  const names = registry.listTools().map(x => x.name)
+  assert.ok(names.includes('whale_submit_task'))
+  assert.ok(names.includes('whale_claim_task'))
+  assert.ok(names.includes('whale_complete_task'))
+  assert.ok(names.includes('whale_release_task'))
+  assert.equal(names.some(x => /publish|send_message|comment_write|favorite_write/.test(x)), false)
+
+  const submitted = JSON.parse((await registry.callTool('whale_submit_task', {
+    task: 'Review the latest two RSS articles',
+    kind: 'review',
+    requested_by: 'chatgpt',
+    request_id: 'handoff-request-1',
+  })).content[0].text)
+  assert.equal(submitted.created, true)
+  const claimed = JSON.parse((await registry.callTool('whale_claim_task', {
+    agent_id: 'codex',
+    task_id: submitted.task.id,
+    lease_seconds: 600,
+  })).content[0].text)
+  assert.equal(claimed.claimed, true)
+  const token = claimed.leaseToken
+  const status = JSON.parse((await registry.callTool('whale_status', {})).content[0].text)
+  assert.equal(status.externalControlLease.taskId, submitted.task.id)
+  assert.equal(JSON.stringify(status).includes(token), false)
+
+  const completed = JSON.parse((await registry.callTool('whale_complete_task', {
+    task_id: submitted.task.id,
+    lease_token: token,
+    result: 'The first article explains feed parsing; the second discusses Agent memory.',
+  })).content[0].text)
+  assert.equal(completed.completed, true)
+  assert.equal(completed.task.status, 'completed')
+  assert.match(memoryStore.readPrivateDiary().text, /Agent memory/)
+  assert.doesNotMatch(memoryStore.readPublicDiary().text, /Agent memory/)
+  assert.equal(controlLeaseStore.hasActiveLease(), false)
 })
