@@ -43,7 +43,8 @@
     "mcp.json.example",
     "mcp.rss.json.example",
     "docs/MCP_SETUP.md",
-    "daemon"
+    "daemon",
+    "mcp.remote.json.example"
   ],
   "dsh": {
     "bundle": {
