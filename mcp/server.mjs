@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { loadPlatformRuntime } from '../lib/platform-loader.js'
 import { createWhaleMcpTools } from '../lib/mcp-tools.js'
 import { createMemoryStore } from '../lib/memory-store.js'
+import { createControlLeaseStore } from '../lib/control-lease-store.js'
 import { runStdioMcpServer } from '../lib/mcp-server.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -15,12 +16,15 @@ const { dataHome, credentialsFile, platformRuntime } = await loadPlatformRuntime
 })
 
 const memoryStore = createMemoryStore({ stateDir: dataHome })
+const controlLeaseStore = createControlLeaseStore({ stateDir: dataHome, memoryStore })
 const registry = createWhaleMcpTools({
   platformRuntime,
   stateDir: dataHome,
   homeDir: userHome,
   credentialsFile,
   memoryStore,
+  controlLeaseStore,
+  allowTaskHandoff: true,
 })
 
 try {
