@@ -49,7 +49,7 @@ function runtime(t, options = {}) {
 
 test('RSS runtime parses RSS 2.0 entries into stable, bounded normalized content', async t => {
   const f = runtime(t)
-  const result = await f.rss.feed({ limit: 10 })
+  const result = await f.rss.content.feed({ limit: 10 })
   assert.equal(result.platform, 'rss')
   assert.equal(result.items.length, 2)
   assert.equal(result.items[0].title, 'Release & Reliability')
@@ -59,7 +59,7 @@ test('RSS runtime parses RSS 2.0 entries into stable, bounded normalized content
   assert.equal(result.items[0].platform, 'rss')
   assert.equal(result.items[0].url, 'https://example.com/posts/1')
   assert.equal(result.sources[0].ok, true)
-  const again = await f.rss.feed({ limit: 10 })
+  const again = await f.rss.content.feed({ limit: 10 })
   assert.equal(again.items[0].id, result.items[0].id)
   assert.equal(f.calls.length, 1, 'fresh feed cache prevents repeated upstream requests')
   assert.equal(f.calls[0].init.redirect, 'error')
@@ -67,7 +67,7 @@ test('RSS runtime parses RSS 2.0 entries into stable, bounded normalized content
 
 test('RSS runtime supports Atom self-closing links and nested author names', async t => {
   const f = runtime(t, { xml: atomXml })
-  const result = await f.rss.feed()
+  const result = await f.rss.content.feed()
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0].title, 'Atom story')
   assert.equal(result.items[0].url, 'https://example.com/atom/1')
@@ -77,20 +77,20 @@ test('RSS runtime supports Atom self-closing links and nested author names', asy
 
 test('search and read share stable content IDs and return explicit source information', async t => {
   const f = runtime(t)
-  const search = await f.rss.search({ query: 'reliability', page: 1 })
+  const search = await f.rss.content.search({ query: 'reliability', page: 1 })
   assert.equal(search.total, 1)
   const item = search.results[0]
-  const read = await f.rss.read({ id: item.id })
+  const read = await f.rss.content.read({ id: item.id })
   assert.deepEqual(read, item)
-  assert.equal((await f.rss.search({ query: 'not-present' })).total, 0)
-  await assert.rejects(f.rss.read({ id: 'invalid' }), /invalid/)
+  assert.equal((await f.rss.content.search({ query: 'not-present' })).total, 0)
+  await assert.rejects(f.rss.content.read({ id: 'invalid' }), /invalid/)
 })
 
 test('RSS cache expires and fetches fresh content after its TTL', async t => {
   const f = runtime(t, { cacheMs: 1000 })
-  await f.rss.feed()
+  await f.rss.content.feed()
   f.advance(1001)
-  await f.rss.feed()
+  await f.rss.content.feed()
   assert.equal(f.calls.length, 2)
 })
 
@@ -107,14 +107,14 @@ test('RSS reports partial source failures and throws when every source fails', a
       return response(rssXml)
     },
   })
-  const result = await f.rss.feed()
+  const result = await f.rss.content.feed()
   assert.equal(result.items.length, 2)
   assert.deepEqual(result.sources.map(x => x.ok), [true, false])
   assert.match(result.sources[1].error, /upstream unavailable/)
   assert.equal(calls, 2)
 
   const failed = runtime(t, { fetchImpl: async () => { throw new Error('offline') } })
-  await assert.rejects(failed.rss.feed(), /All configured RSS feeds failed/)
+  await assert.rejects(failed.rss.content.feed(), /All configured RSS feeds failed/)
 })
 
 test('RSS rejects local hosts, IP literals, credentials, unsupported schemes and nonstandard ports', async () => {
@@ -147,15 +147,15 @@ test('RSS rejects DNS answers that include any non-public address', async () => 
 
 test('RSS rejects DTD/entity declarations and oversized payloads', async t => {
   const dtd = runtime(t, { xml: '<!DOCTYPE rss [<!ENTITY x "boom">]><rss><channel></channel></rss>' })
-  await assert.rejects(dtd.rss.feed(), /DTD\/entity/)
+  await assert.rejects(dtd.rss.content.feed(), /DTD\/entity/)
   const huge = runtime(t, { xml: '<rss>' + 'x'.repeat(2000) + '</rss>', maxBytes: 100 })
-  await assert.rejects(huge.rss.feed(), /size limit/)
+  await assert.rejects(huge.rss.content.feed(), /size limit/)
 })
 
 test('RSS enforces feed count, query and result limits', async t => {
   assert.throws(() => createRssRuntime({ feeds: [] }), /1–10/)
   assert.throws(() => createRssRuntime({ feeds: Array.from({ length: 11 }, (_, i) => ({ name: String(i), url: 'https://example.com/' + i })) }), /1–10/)
   const f = runtime(t)
-  await assert.rejects(f.rss.search({ query: '  ' }), /1–120/)
-  await assert.rejects(f.rss.feed({ limit: 11 }), /limit/)
+  await assert.rejects(f.rss.content.search({ query: '  ' }), /1–120/)
+  await assert.rejects(f.rss.content.feed({ limit: 11 }), /limit/)
 })
