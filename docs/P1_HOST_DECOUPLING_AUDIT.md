@@ -117,3 +117,16 @@ Added `skills/bili-whale/SKILL.md`, `mcp.json.example`, and the `mcp:stdio` pack
 Added `lib/rss-runtime.js` implementing the same `platformRuntime.content.search/feed/read` contract without Bilibili imports. Feed URLs are owner-configured (maximum 10), HTTPS-only by default, credential-free, IP-literal-free, nonstandard ports are rejected, DNS answers are checked for public addresses, redirects are rejected, response bodies are bounded to 1 MB, requests time out, successful responses are cached for five minutes, and failures are briefly cached to avoid repeatedly hitting an unavailable host. RSS/Atom content IDs are stable hashes of the configured source and entry identity. The MCP server selects `WHALE_PLATFORM=rss` and stores state under `WHALE_HOME`/`~/.whale-agent`; no Bilibili login is needed. The RSS mode only advertises content search/feed/read and public diary/status tools.
 
 Known limitation: the built-in Fetch API resolves DNS again during connection, so a DNS rebinding race cannot be fully eliminated by preflight DNS checks alone. RSS sources must be configured by the owner and should come from trusted public hosts. Autonomous scheduling, model API calls, and public write operations are not part of this gate.
+
+
+## P3 Gate 14 — fixed-brain model client and bounded tool loop
+
+Added an OpenAI-compatible Chat Completions client with explicit model ID, API key, HTTPS-by-default endpoint validation, timeouts, and bounded error messages. The orchestrator supports only a small allowlist of read tools plus a daemon-only local diary writer, limits total steps/tool calls and per-tool calls, treats platform content as untrusted, and requires diary confirmation before marking a run complete. No platform write tool is available to the autonomous model.
+
+## P3 Gate 15 — persistent autonomous daemon and memory
+
+Added an opt-in daemon with a persisted wake plan, stable run IDs across retries, single-instance lock, graceful cancellation, and an append-only structured diary journal. Private diary entries are hidden from the public MCP diary tool. The daemon is not enabled by default and requires explicit model API configuration. The CI uses fake model clients; real provider billing and tool-call behavior remain unverified.
+
+## P3 Gate 16 — external Agent task handoff lease
+
+Added a local task queue with idempotent request IDs, one global active lease, expiring claims, secret lease tokens stored only as hashes, complete/release operations, and private-memory recording of task results. Public MCP clients can submit/list/claim/complete/release local tasks, but these tools cannot mutate external platform accounts. The autonomous scheduler defers a due wake while an external task lease is active; it resumes on a later tick after completion, release, or expiry. Tests cover lease lifecycle, invalid tokens, expiry, private-memory recording, and scheduler deferral.
