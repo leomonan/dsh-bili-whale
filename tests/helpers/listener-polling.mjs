@@ -36,10 +36,10 @@ globalThis.fetch=async url=>{
 }
 const cfg={listen:{dm:true,comment:true,allDay:true,scope:'reply',dmIntervalSec:60,commentIntervalSec:60},night:{windows:[]}}
 const save=()=>fs.writeFileSync(process.env.BILI_WHALE_CONFIG,JSON.stringify(cfg));save()
-const {startScheduler}=await import('../../lib/scheduler.js')
+const {startDshScheduler}=await import('../../lib/dsh-scheduler-host.js')
 const {trafficGuard}=await import('../../tools/lib/traffic.mjs')
 let deliveries=0
-const s=startScheduler({sessionController:{create:async()=>{},prompt:async()=>{deliveries++}}},{dshHome:dsh,cwd:home,biliMjs:fileURLToPath(new URL('../../tools/bili.mjs',import.meta.url))})
+const s=startDshScheduler({sessionController:{create:async()=>{},prompt:async()=>{deliveries++}}},{dshHome:dsh,cwd:home,biliMjs:fileURLToPath(new URL('../../tools/bili.mjs',import.meta.url))})
 const both=async()=>{await s.dmTick();await s.listenTick()}
 const counts=()=>[dmCalls,commentCalls]
 const delta=(before,expected)=>assert.deepEqual(counts().map((n,i)=>n-before[i]),expected)

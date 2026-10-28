@@ -21,9 +21,9 @@ cp.execFile=(exe,args,options,cb)=>realExec(exe,args,options,(err,out,stderr)=>{
 const write=(value)=>fs.writeFileSync(process.env.TEST_HISTORY,JSON.stringify(value))
 const empty=()=>write({code:0,data:{messages:[],has_more:0}})
 empty()
-const {startScheduler}=await import('../../lib/scheduler.js')
+const {startDshScheduler}=await import('../../lib/dsh-scheduler-host.js')
 let prompts=0;let received=[]
-const scheduler=startScheduler({sessionController:{create:async()=>{},prompt:async(request)=>{prompts++;received.push(request)}}},{dshHome:dsh,cwd:home,biliMjs:fileURLToPath(new URL('../../tools/bili.mjs',import.meta.url))})
+const scheduler=startDshScheduler({sessionController:{create:async()=>{},prompt:async(request)=>{prompts++;received.push(request)}}},{dshHome:dsh,cwd:home,biliMjs:fileURLToPath(new URL('../../tools/bili.mjs',import.meta.url))})
 try {
   for(let i=0;i<6;i++) {
     const n=exits.length;await scheduler.dmTick()
