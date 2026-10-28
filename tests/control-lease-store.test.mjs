@@ -159,3 +159,23 @@ test('expired lease is persisted as pending even when a new submission hits queu
   assert.equal(persisted.tasks.find(item => item.id === tasks[0].id).status, 'pending')
   assert.ok(claimed.leaseToken)
 })
+
+
+test('handoff completion refuses to reuse a public diary entry for private task memory', t => {
+  const f = fixture(t)
+  const task = f.control.submitTask({ task: 'Summarize an article' }).task
+  const claim = f.control.claimTask({ agentId: 'codex', taskId: task.id })
+  const expected = 'External Agent task (' + task.kind + '): ' + task.task.slice(0, 200) + '\n\nResult:\nA result that should remain private.'
+  f.memoryStore.recordDiary({
+    runId: 'handoff-' + task.id,
+    entry: expected,
+    visibility: 'public',
+    platform: 'external-agent',
+  })
+  assert.throws(() => f.control.completeTask({
+    taskId: task.id,
+    leaseToken: claim.leaseToken,
+    result: 'A result that should remain private.',
+  }), /non-private handoff entry/)
+  assert.equal(f.control.listTasks()[0].status, 'leased')
+})
