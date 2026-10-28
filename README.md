@@ -451,10 +451,11 @@ dsh --profile <配置档名> web --port 3099
 
 ## Whale Agent MCP preview (experimental branch)
 
-The `feature/core-runtime` branch is being developed toward a host-independent Whale Agent. It now contains an initial **read-only MCP stdio endpoint** and a portable Agent Skill:
+The `feature/core-runtime` branch now has a read-only MCP stdio endpoint and portable Agent Skill for two platform modes:
 
-- Setup guide: [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
-- Skill: [skills/bili-whale/SKILL.md](skills/bili-whale/SKILL.md)
-- MCP config example: [mcp.json.example](mcp.json.example)
+- **Bilibili**: existing account-backed read tools, video debriefing, and platform status.
+- **RSS/Atom**: public feed search, candidate retrieval, and article reading without Bilibili credentials.
 
-This preview exposes status/capabilities, public diary reading, and bounded content search/feed/read tools. It does **not** expose public posting, comments, favorites, or message sending, and it does not start the autonomous daemon. The original DSH plugin remains available as the compatibility host while the independent runtime is built and tested.
+Setup guides: [MCP setup](docs/MCP_SETUP.md), [RSS config example](mcp.rss.json.example), [Skill](skills/bili-whale/SKILL.md), [default MCP config](mcp.json.example).
+
+This remains an interactive read-only preview. It does not expose public posting, commenting, favorites, or message sending, and it does not start the autonomous daemon or a fixed model loop. RSS feeds are explicitly configured, bounded, cached, and checked against local/private-address targets; DNS rebinding remains a documented limitation.
