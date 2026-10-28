@@ -95,7 +95,7 @@ Model API usage is billed by the selected model provider and is separate from a 
 
 ## External Agent handoff
 
-The MCP server exposes `whale_submit_task`, `whale_list_tasks`, `whale_claim_task`, `whale_complete_task`, and `whale_release_task`. These operate only on the local task queue and shared private memory. Claiming a task returns a time-limited lease token; treat it as a secret and use it only for that task. Only one external Agent may hold a lease at a time. The autonomous daemon defers its scheduled wake while the lease is active, then resumes on a later tick. A task completion is saved into the private Whale diary for the fixed-brain model to use on a later wake.
+The MCP server exposes `whale_submit_task`, `whale_list_tasks`, `whale_claim_task`, `whale_renew_task`, `whale_complete_task`, and `whale_release_task`. These operate only on the local task queue and shared private memory. Claiming a task returns a time-limited lease token; treat it as a secret and use it only for that task. Only one external Agent may hold a lease at a time. Renew a lease before expiry for longer work; an expired lease cannot be renewed. The autonomous daemon defers its scheduled wake while the lease is active, then resumes on a later tick. A task completion is saved into the private Whale diary for the fixed-brain model to use on a later wake.
 
 
 ## Remote HTTP MCP endpoint
