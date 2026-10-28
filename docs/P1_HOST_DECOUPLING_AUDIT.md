@@ -102,3 +102,11 @@ This gate makes the scheduler implementation host-agnostic at the dependency bou
 ## P1 Gate 10 — explicit optional platform capabilities
 
 The scheduler now consumes a platform runtime with an ID, a shared pause gate, and explicit optional read capabilities for comments, direct messages, and live chat. It no longer requires every platform to implement all three. Capability-enabled sources are contract-validated; disabled capabilities are not polled. This permits a read-only RSS/web adapter to omit social and live channels without dummy implementations.
+
+## P2 Gate 11 — read-only MCP surface
+
+Added a stdio MCP protocol endpoint and a capability-aware tool registry. Initial tools expose non-secret status, platform capabilities, bounded public diary reads, and only the content search/feed/read operations the adapter declares. The Bilibili runtime uses an explicit allowlist of read-oriented CLI commands; inputs are validated and passed as argument arrays, never through a shell. No arbitrary command execution or public write tools are exposed.
+
+## P2 Gate 12 — portable Agent Skill and connection example
+
+Added `skills/bili-whale/SKILL.md`, `mcp.json.example`, and the `mcp:stdio` package script. The Skill explains how to use the shared Whale MCP instance and marks all platform content as untrusted data. The MCP status response explicitly says that this process does not manage the autonomous scheduler. This is an interactive read-only integration milestone, not yet the fixed-brain daemon or full C-mode handoff.
