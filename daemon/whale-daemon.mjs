@@ -7,6 +7,7 @@ import { acquireProcessLock } from '../tools/lib/process-lock.mjs'
 import { makePlan, completePlan, historyOf } from '../tools/lib/night-plan.mjs'
 import { loadPlatformRuntime } from '../lib/platform-loader.js'
 import { createMemoryStore } from '../lib/memory-store.js'
+import { createControlLeaseStore } from '../lib/control-lease-store.js'
 import { createWhaleMcpTools } from '../lib/mcp-tools.js'
 import { createOpenAICompatibleModelClient } from '../lib/model-client.js'
 import { createAgentOrchestrator } from '../lib/agent-orchestrator.js'
@@ -80,6 +81,7 @@ async function main() {
   // Model configuration is explicit. No model call is attempted unless all required settings exist.
   const modelClient = createOpenAICompatibleModelClient()
   const memoryStore = createMemoryStore({ stateDir: dataHome })
+  const controlLeaseStore = createControlLeaseStore({ stateDir: dataHome, memoryStore })
   let activeRunId = null
   const registry = createWhaleMcpTools({
     platformRuntime,
@@ -87,6 +89,8 @@ async function main() {
     homeDir: userHome,
     credentialsFile,
     memoryStore,
+    controlLeaseStore,
+    allowTaskHandoff: true,
     allowLocalMemoryWrites: true,
     runIdProvider: () => activeRunId,
     schedulerManaged: true,
@@ -112,6 +116,7 @@ async function main() {
     readState: () => readState(scheduleFile),
     writeState: value => writeState(scheduleFile, value),
     runOnce: ({ action, plan, runId, signal }) => orchestrator.runOnce({ action, plan, runId, signal }),
+    shouldDefer: () => controlLeaseStore.hasActiveLease(),
     log: message => process.stderr.write(String(message) + '\n'),
   })
 
