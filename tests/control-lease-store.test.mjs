@@ -82,3 +82,39 @@ test('control store rejects malformed persisted state instead of discarding task
   fs.writeFileSync(path.join(f.dir, 'whale-control.json'), '{')
   assert.throws(() => f.control.listTasks(), /invalid/)
 })
+
+
+test('bounded queue prunes terminal history without dropping older pending tasks', t => {
+  const f = fixture(t)
+  const pending = []
+  for (let i = 0; i < 99; i += 1) {
+    pending.push(f.control.submitTask({ task: 'Pending task ' + i }).task)
+  }
+  const terminal = f.control.submitTask({ task: 'Will be completed' }).task
+  const claim = f.control.claimTask({ agentId: 'codex', taskId: terminal.id })
+  f.control.completeTask({ taskId: terminal.id, leaseToken: claim.leaseToken, result: 'Done.' })
+  const next = f.control.submitTask({ task: 'New task after pruning' })
+  assert.equal(next.created, true)
+  const remaining = f.control.listTasks({ limit: 100 })
+  assert.equal(remaining.length, 100)
+  assert.ok(pending.every(task => remaining.some(item => item.id === task.id)))
+  assert.equal(remaining.some(item => item.id === terminal.id), false)
+})
+
+test('completion fails closed when a retry conflicts with the result already in private memory', t => {
+  const f = fixture(t)
+  const task = f.control.submitTask({ task: 'Summarize a feed' }).task
+  const claim = f.control.claimTask({ agentId: 'chatgpt', taskId: task.id })
+  f.memoryStore.recordDiary({
+    runId: 'handoff-' + task.id,
+    entry: 'A different earlier result.',
+    visibility: 'private',
+    platform: 'external-agent',
+  })
+  assert.throws(() => f.control.completeTask({
+    taskId: task.id,
+    leaseToken: claim.leaseToken,
+    result: 'New conflicting result.',
+  }), /different handoff result/)
+  assert.equal(f.control.listTasks()[0].status, 'leased')
+})
