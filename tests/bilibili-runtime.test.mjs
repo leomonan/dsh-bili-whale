@@ -33,7 +33,7 @@ test('Bilibili runtime composes inbox, DM and live adapters over one configured 
   })
 
   assert.equal(runtime.id, 'bilibili')
-  assert.deepEqual(runtime.capabilities, { comments: { read: true }, messages: { read: true }, liveChat: { read: true } })
+  assert.deepEqual(runtime.capabilities, { content: { search: true, feed: true, read: true }, comments: { read: true }, messages: { read: true }, liveChat: { read: true } })
   assert.equal(runtime.isPaused(), false)
   assert.deepEqual((await runtime.comments.pollComments({ scope: 'reply' })).map(x => x.kind), ['reply'])
   assert.deepEqual(await runtime.messages.pollOnce(), { hit: false })
