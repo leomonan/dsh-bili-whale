@@ -2,7 +2,7 @@
 
 > 方案版本：v1.0（设计稿）  
 > 编制日期：2026-10-28  
-> 状态：持续开发中；P0 基线和 CI 已完成，P1 宿主解耦 Gate 0–10 已落地，P2 MCP/Skill 只读接入正在实施  
+> 状态：持续开发中；P0/P1 已完成，P2 双平台 MCP/Skill 已实现，P3 固定大脑 Daemon 与 C 模式外部 Agent 控制租约首版已实现；当前持续进行端到端回归与可靠性收敛  
 > 上游：[Alterssss/dsh-bili-whale](https://github.com/Alterssss/dsh-bili-whale)  
 > 基线：`v0.4.6`，`main@8b0009f8ce2ebdc421afcb2e727b19ac18912ec6`（2026-10-25）
 
@@ -285,8 +285,8 @@ dsh-bili-whale/                    # Fork 起始仓库，后续可改显示名
 
 - **P0 已完成**：个人 Fork、`agent-main` 基线、开发方案、基线记录和 GitHub Actions；原始完整测试集曾独立通过 154/154。
 - **P1 Gate 0–10 已落地**：会话投递合同、B 站收件箱/私信/直播适配器、平台运行时组合、宿主能力隔离、平台工作流抽取、显式可选能力合同。主要 Gate 均有远程 CI 记录。
-- **P2 MCP/Skill 已落地**：标准 stdio MCP 握手、能力驱动工具发现、Bilibili 与 RSS/Atom 只读内容工具、公开日记、跨 Agent Skill、两份配置示例和安装文档均已实现。RSS 无需 B 站凭据；RSS 解析、缓存、失败冷却和 SSRF 边界有专项测试。
+- **P2 MCP/Skill 已落地**：stdio 与带 Bearer 认证的 HTTP MCP 入口、能力驱动工具发现、Bilibili 与 RSS/Atom 内容工具、公开日记、跨 Agent Skill、配置样例和安装文档均已实现。RSS 无需 B 站凭据；RSS 解析、缓存、失败冷却和网络边界有专项测试。
 - **P3 固定大脑与自主运行第一版已落地**：OpenAI-compatible 固定模型客户端、有限工具调用循环、持久生物钟计划、单实例锁、可恢复 pending wake、append-only 结构化日记与运行时 opt-in Daemon 已实现。模型调用采用独立 API 凭据，尚未进行真实付费模型 E2E；自动运行默认关闭。
-- **C 模式外部 Agent 接管已落地首版**：MCP 本地任务队列、单一活动控制租约、过期回收、完成/释放、结果写入同一私有记忆；自主调度器在外部 Agent 持有租约时暂停该轮唤醒。仍需多客户端真实并发与跨宿主验收。
-- **仍待完成**：远程 HTTP MCP 与认证、真实模型 API E2E、跨平台聚合（同一轮跨 B 站 + RSS）、YouTube 官方 API、公开平台写操作审批/Outbox、长期记忆检索与迁移完善。
+- **C 模式外部 Agent 接管首版已落地**：本地任务队列、单一活动控制租约、过期回收、幂等完成/释放、结果写入同一私有记忆；自主调度器在外部 Agent 持有租约时推迟唤醒。任务队列与日记已补充冲突重试、历史窗口和队列回收测试。
+- **仍待完成**：真实模型 API E2E、远程 HTTP MCP 的 TLS/OAuth 部署与具体宿主互操作验收、跨平台聚合（同一轮跨 B 站 + RSS）、YouTube 官方 API、公开平台写操作审批/Outbox、长期记忆检索与迁移完善。
 - **安全边界**：MCP 可写入本地任务队列与本地日记，但不公开评论、私信发送、收藏、发布等平台写操作。自主 Daemon 必须显式设置 `WHALE_AUTONOMY_ENABLED=1`，默认关闭。
