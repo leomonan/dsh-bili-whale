@@ -135,3 +135,27 @@ test('orchestrator rejects invalid configuration and unsupported actions', async
   const orchestrator = createAgentOrchestrator({ modelClient: { complete: async () => answer(null, 'x') }, toolRegistry: registry([]) })
   await assert.rejects(orchestrator.runOnce({ action: 'publish' }), /action must be wake or skip/)
 })
+
+
+test('orchestrator refuses to count a public diary collision as private run completion', async () => {
+  const base = registry([])
+  const toolRegistry = {
+    listTools: () => base.listTools(),
+    async callTool(name, args) {
+      if (name === 'whale_record_diary') {
+        return { content: [{ type: 'text', text: JSON.stringify({ recorded: false, duplicate: true, runId: 'public-collision', visibility: 'public' }) }] }
+      }
+      return base.callTool(name, args)
+    },
+  }
+  let step = 0
+  const modelClient = {
+    async complete() {
+      step += 1
+      if (step === 1) return answer([call('1', 'whale_record_diary', { entry: 'A private note.' })])
+      return answer(null, 'I finished, but the only diary collision was public.')
+    },
+  }
+  const orchestrator = createAgentOrchestrator({ modelClient, toolRegistry, platformId: 'rss' })
+  await assert.rejects(orchestrator.runOnce({ runId: 'public-collision' }), /without recording a diary/)
+})
