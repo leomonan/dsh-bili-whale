@@ -458,7 +458,7 @@ The `feature/core-runtime` branch now has an MCP stdio endpoint and portable Age
 
 Setup guides: [MCP setup](docs/MCP_SETUP.md), [RSS config example](mcp.rss.json.example), [Skill](skills/bili-whale/SKILL.md), [default MCP config](mcp.json.example).
 
-The MCP server does not start the autonomous daemon. It exposes local task submission/leases for external Agent handoff, but does not expose public posting, commenting, favorites, or message sending. The separate fixed-brain daemon is opt-in and uses a provider API key. RSS feeds are explicitly configured, bounded, cached, and checked against local/private-address targets; DNS rebinding remains a documented limitation.
+The MCP server does not start the autonomous daemon. It exposes local task submission/leases for external Agent handoff, but does not expose public posting, commenting, favorites, or message sending. The separate fixed-brain daemon is opt-in and uses a provider API key. RSS feeds are explicitly configured, bounded, cached, checked against private-address targets, and fetched through a DNS-pinned transport that rejects redirects.
 
 
 ## Experimental autonomous Whale daemon
