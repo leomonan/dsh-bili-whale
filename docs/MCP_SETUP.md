@@ -113,3 +113,12 @@ Required configuration:
 The HTTP server supports authenticated JSON POST requests to `/mcp`, MCP session IDs, session expiry, DELETE session cleanup, strict request-size limits, and exact Origin allowlisting. It does not implement OAuth discovery or server-sent event streams. Some hosted Agent clients may require OAuth or a different remote-server registration flow; the static bearer-token example is not guaranteed to satisfy every host.
 
 The server binds to loopback by default. To make it reachable remotely, place it behind a TLS-terminating reverse proxy or an equivalent HTTPS gateway, keep the bearer token secret, configure exact allowed origins, and avoid exposing the raw HTTP listener directly to the public internet. Use [mcp.remote.json.example](../mcp.remote.json.example) as a generic client configuration example and adapt it to the selected Agent's supported configuration format.
+
+
+## Shared identity and data directories
+
+By default, the Whale Core memory journal, autonomous schedule, and external-Agent task queue live under `~/.whale-agent` for every platform. The Bilibili adapter continues to read its legacy account/configuration data from `~/.dsh`, so adding RSS does not require moving Bilibili credentials. The public diary tool can still read the existing `~/.dsh/whale-diary.md` while new memory is stored in the shared Core journal.
+
+- `WHALE_CORE_HOME`: override only the shared Core memory/schedule/task directory.
+- `WHALE_HOME`: override both the Core home and selected platform data home (use this only when you intentionally want a common directory).
+- `DSH_HOME`: legacy Bilibili data home; when `WHALE_HOME` is unset, this does not change the default shared Core home.
