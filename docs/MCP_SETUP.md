@@ -86,9 +86,9 @@ Then run:
 npm run whale:daemon
 ```
 
-The daemon uses the fixed model and its own persisted schedule, while MCP clients connect to the same data directory. It uses a single-instance lock and a stable run ID so a restart retries a pending wake without duplicating the diary entry. The default schedule is 20:00–24:00 with one wake and a 30% skip chance; configure your own `night` settings to change it.
+The daemon uses the fixed model and its own persisted schedule, while MCP clients connect to the same Core home. It uses a single-instance lock and a stable run ID so a restart retries a pending wake without duplicating the diary entry. The default schedule is 20:00–24:00 with one wake and a 30% skip chance; configure your own `night` settings to change it. The autonomous model can write **private** diary entries only; it cannot make diary entries public.
 
-**Current autonomous safety boundary:** the model can read configured platform content and write a local private/public diary entry. It cannot publish, comment, favorite, send messages, delete, or otherwise mutate platform accounts. Public platform actions are not available in the autonomous tool registry. The daemon does not run unless explicitly enabled.
+**Current autonomous safety boundary:** the model can read configured platform content and write a local **private** diary entry only. The public diary is read-only to the autonomous model. It cannot publish, comment, favorite, send messages, delete, or otherwise mutate platform accounts. Public platform actions are not available in the autonomous tool registry. The daemon does not run unless explicitly enabled.
 
 Model API usage is billed by the selected model provider and is separate from a ChatGPT subscription. A model endpoint must use HTTPS unless it is loopback or `WHALE_MODEL_ALLOW_HTTP=1` is explicitly set. Do not put API keys in repository files or MCP configuration committed to Git.
 
