@@ -13,7 +13,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "mcp:stdio": "node mcp/server.mjs"
+    "mcp:stdio": "node mcp/server.mjs",
+    "whale:daemon": "node daemon/whale-daemon.mjs"
   },
   "main": "lib/index.js",
   "exports": {
@@ -40,7 +41,8 @@
     "skills",
     "mcp.json.example",
     "mcp.rss.json.example",
-    "docs/MCP_SETUP.md"
+    "docs/MCP_SETUP.md",
+    "daemon"
   ],
   "dsh": {
     "bundle": {
