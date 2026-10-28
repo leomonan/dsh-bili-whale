@@ -139,3 +139,18 @@ test('HTTP MCP does not expire or delete a session while a tool request is activ
   const expired = await f.request(rpc(4, 'tools/list'), { 'mcp-session-id': sessionId })
   assert.equal(expired.status, 404)
 })
+
+
+test('HTTP MCP enforces its configured session capacity', async t => {
+  const f = await fixture(t, { maxSessions: 1 })
+  const init = () => f.request(rpc(1, 'initialize', { protocolVersion: '2025-06-18' }))
+  const first = await init()
+  assert.equal(first.status, 200)
+  const sessionId = first.headers.get('mcp-session-id')
+  const second = await init()
+  assert.equal(second.status, 503)
+  const deleted = await f.request(undefined, { 'mcp-session-id': sessionId }, 'DELETE')
+  assert.equal(deleted.status, 204)
+  const third = await init()
+  assert.equal(third.status, 200)
+})
