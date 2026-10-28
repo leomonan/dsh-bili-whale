@@ -7,7 +7,7 @@ const toolNames = [
   'whale_read_private_diary', 'whale_search_private_memory', 'whale_record_diary', 'whale_search_content',
   'whale_get_feed', 'whale_read_content',
 ]
-function registry(calls) {
+function registry(calls, runId = 'run-1') {
   return {
     listTools: () => toolNames.map(name => ({
       name,
@@ -17,7 +17,7 @@ function registry(calls) {
     async callTool(name, args) {
       calls.push({ name, args })
       const value = name === 'whale_record_diary'
-        ? { recorded: true, duplicate: false, runId: 'run-1' }
+        ? { recorded: true, duplicate: false, runId }
         : { tool: name, data: name === 'whale_get_feed' ? [{ id: 'item-1' }, { id: 'item-2' }] : 'ok' }
       return { content: [{ type: 'text', text: JSON.stringify(value) }] }
     },
@@ -86,7 +86,7 @@ test('skip mode never exposes content search, feed, or content read tools', asyn
       return answer([call('1', 'whale_read_private_diary')])
     },
   }
-  const orchestrator = createAgentOrchestrator({ modelClient, toolRegistry: registry(calls), platformId: 'rss' })
+  const orchestrator = createAgentOrchestrator({ modelClient, toolRegistry: registry(calls, 'skip-run'), platformId: 'rss' })
   const result = await orchestrator.runOnce({ action: 'skip', runId: 'skip-run' })
   assert.equal(result.diaryRecorded, true)
   const names = requestSeen.tools.map(t => t.function.name)
