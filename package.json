@@ -14,7 +14,8 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "mcp:stdio": "node mcp/server.mjs",
-    "whale:daemon": "node daemon/whale-daemon.mjs"
+    "whale:daemon": "node daemon/whale-daemon.mjs",
+    "mcp:http": "node mcp/http-server.mjs"
   },
   "main": "lib/index.js",
   "exports": {
