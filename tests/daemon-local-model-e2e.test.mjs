@@ -84,6 +84,7 @@ test('opt-in daemon completes one wake through a local mock model API without pa
     WHALE_DAEMON_TICK_MS: '5000',
   }
   delete env.WHALE_CONFIG
+  delete env.WHALE_CORE_HOME
   delete env.WHALE_MCP_AUTH_TOKEN
   const child = spawn(process.execPath, [daemon], { env, stdio: ['ignore', 'ignore', 'pipe'] })
   let stderr = ''
