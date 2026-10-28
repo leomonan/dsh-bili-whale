@@ -102,3 +102,40 @@ test('HTTP MCP expires idle sessions', async t => {
   const result = await f.request(rpc(2, 'tools/list'), { 'mcp-session-id': sessionId })
   assert.equal(result.status, 404)
 })
+
+
+test('HTTP MCP does not expire or delete a session while a tool request is active', async t => {
+  let now = 1_000
+  let enteredResolve
+  const entered = new Promise(resolve => { enteredResolve = resolve })
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const slowRegistry = {
+    listTools: async () => [{ name: 'slow_tool', inputSchema: { type: 'object', properties: {} } }],
+    async callTool(name) {
+      if (name === 'slow_tool') {
+        enteredResolve()
+        await gate
+      }
+      return { content: [{ type: 'text', text: name }] }
+    },
+  }
+  const f = await fixture(t, { now: () => now, sessionTtlMs: 1000, registry: slowRegistry })
+  const init = await f.request(rpc(1, 'initialize', { protocolVersion: '2025-06-18' }))
+  const sessionId = init.headers.get('mcp-session-id')
+  await f.request({ jsonrpc: '2.0', method: 'notifications/initialized' }, { 'mcp-session-id': sessionId })
+
+  const pending = f.request(rpc(2, 'tools/call', { name: 'slow_tool', arguments: {} }), { 'mcp-session-id': sessionId })
+  await entered
+  now = 3000
+  const deleted = await f.request(undefined, { 'mcp-session-id': sessionId }, 'DELETE')
+  assert.equal(deleted.status, 409)
+  const concurrent = await f.request(rpc(3, 'tools/list'), { 'mcp-session-id': sessionId })
+  assert.equal(concurrent.status, 200)
+  release()
+  assert.equal((await pending).status, 200)
+
+  now = 5001
+  const expired = await f.request(rpc(4, 'tools/list'), { 'mcp-session-id': sessionId })
+  assert.equal(expired.status, 404)
+})
