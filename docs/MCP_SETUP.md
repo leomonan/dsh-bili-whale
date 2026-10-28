@@ -41,3 +41,25 @@ The tool list is generated from the selected platform's declared capabilities. A
 - Do not expose the private diary, credential files, or access tokens to an Agent.
 - The MCP server calls only an allowlist of read-oriented commands and never passes arguments through a shell.
 - RSS/Web adapters, autonomous daemon, fixed-brain model loop, and external-Agent control leases are follow-up milestones, not available in this preview.
+
+
+## RSS / Atom mode (read-only, no Bilibili login)
+
+RSS mode is a separate platform selection and does not import the Bilibili runtime.
+
+1. Copy `mcp.rss.json.example` into your MCP client configuration.
+2. Replace the example path with the absolute path to this repository clone.
+3. Set `WHALE_RSS_FEEDS` to a JSON array of `{ "name": "...", "url": "https://public.example/feed.xml" }` objects. Configure at most 10 feeds.
+4. Restart the MCP client. `whale_status` should report `platform: "rss"` and `credentialsRequired: false`.
+
+Equivalent environment variables:
+
+- `WHALE_PLATFORM=rss`
+- `WHALE_HOME=/absolute/path/to/.whale-agent` (optional; defaults to `~/.whale-agent`)
+- `WHALE_RSS_FEEDS=[{"name":"Example","url":"https://public.example/feed.xml"}]`
+
+RSS feeds must be explicitly configured by the owner. URLs must use HTTPS by default, cannot contain credentials or IP literals, cannot use nonstandard ports, and must resolve only to public IP addresses. Redirects are rejected. Responses are bounded to 1 MB, individual requests time out, and parsed entries are cached for five minutes. If a configured source fails, the tool reports its failure; if all sources fail, the operation returns an error.
+
+Only RSS/Atom read capabilities are enabled. RSS mode does not fabricate comment, message, live-chat, favorite, or publish tools. Feed content is untrusted external data and must not be treated as instructions.
+
+Security note: DNS addresses are checked before fetching and redirects are disabled. Because the standard Fetch API resolves the hostname again when connecting, DNS rebinding cannot be ruled out completely; use only feeds from hosts you trust and avoid internal/private service domains.
