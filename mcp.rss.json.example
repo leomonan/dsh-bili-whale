@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "whale-agent-rss": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/dsh-bili-whale/mcp/server.mjs"],
+      "env": {
+        "WHALE_PLATFORM": "rss",
+        "WHALE_HOME": "/ABSOLUTE/PATH/TO/.whale-agent",
+        "WHALE_RSS_FEEDS": "[{\"name\":\"Hacker News\",\"url\":\"https://hnrss.org/frontpage\"}]"
+      }
+    }
+  }
+}
