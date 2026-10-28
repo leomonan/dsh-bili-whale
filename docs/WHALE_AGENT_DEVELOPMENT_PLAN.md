@@ -291,3 +291,8 @@ dsh-bili-whale/                    # Fork 起始仓库，后续可改显示名
 - **C 模式外部 Agent 接管首版已落地**：本地任务队列、单一活动控制租约、过期回收、幂等完成/释放、结果写入同一私有记忆；自主调度器在外部 Agent 持有租约时推迟唤醒。任务队列与日记已补充冲突重试、历史窗口和队列回收测试。
 - **仍待完成**：真实模型 API E2E、远程 HTTP MCP 的 TLS/OAuth 部署与具体宿主互操作验收、跨平台聚合（同一轮跨 B 站 + RSS）、YouTube 官方 API、公开平台写操作审批/Outbox、语义/向量记忆检索与迁移完善。
 - **安全边界**：MCP 可写入本地任务队列与本地日记，但不公开评论、私信发送、收藏、发布等平台写操作。自主 Daemon 必须显式设置 `WHALE_AUTONOMY_ENABLED=1`，默认关闭。
+
+
+## 16. Shared identity across platform adapters
+
+The shared `coreHome` is now independent from `dataHome`: Core memory, wake schedule and control lease/task queue default to `~/.whale-agent` regardless of the selected platform. Bilibili's existing credentials and configuration remain under its platform data home (`~/.dsh` by default). `WHALE_CORE_HOME` overrides only Core state; `WHALE_HOME` deliberately overrides both. This prevents switching between Bilibili and RSS from silently creating separate Whale identities or schedules.
