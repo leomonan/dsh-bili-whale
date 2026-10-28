@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createWhaleMcpTools } from '../lib/mcp-tools.js'
+import { createMemoryStore } from '../lib/memory-store.js'
 
 function fixture(t, options = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-mcp-tools-'))
@@ -85,4 +86,48 @@ test('public diary is bounded and private diary is never exposed', async t => {
   const result = await f.tools.callTool('whale_read_diary', { max_chars: 1000 })
   assert.match(result.content[0].text, /Public diary/)
   assert.doesNotMatch(result.content[0].text, /PRIVATE SECRET/)
+})
+
+
+test('daemon-only diary tools are not exposed by the public MCP registry', async t => {
+  const f = fixture(t)
+  const memoryStore = createMemoryStore({ stateDir: f.stateDir })
+  const publicRegistry = createWhaleMcpTools({
+    platformRuntime: f.platformRuntime,
+    stateDir: f.stateDir,
+    homeDir: path.dirname(f.credentialsFile),
+    credentialsFile: f.credentialsFile,
+    memoryStore,
+  })
+  const publicNames = publicRegistry.listTools().map(x => x.name)
+  assert.equal(publicNames.includes('whale_record_diary'), false)
+  assert.equal(publicNames.includes('whale_read_private_diary'), false)
+
+  let activeRunId = null
+  const daemonRegistry = createWhaleMcpTools({
+    platformRuntime: f.platformRuntime,
+    stateDir: f.stateDir,
+    homeDir: path.dirname(f.credentialsFile),
+    credentialsFile: f.credentialsFile,
+    memoryStore,
+    allowLocalMemoryWrites: true,
+    runIdProvider: () => activeRunId,
+    schedulerManaged: true,
+    mode: 'autonomous',
+  })
+  const daemonNames = daemonRegistry.listTools().map(x => x.name)
+  assert.ok(daemonNames.includes('whale_record_diary'))
+  assert.ok(daemonNames.includes('whale_read_private_diary'))
+
+  assert.equal((await daemonRegistry.callTool('whale_record_diary', { entry: 'No active run.' })).isError, true)
+  activeRunId = 'daemon-run-1'
+  const recorded = await daemonRegistry.callTool('whale_record_diary', { entry: 'Private autonomous reflection.', mood: 'curious' })
+  assert.equal(JSON.parse(recorded.content[0].text).recorded, true)
+  const privateRead = await daemonRegistry.callTool('whale_read_private_diary', { max_chars: 1000 })
+  assert.match(privateRead.content[0].text, /Private autonomous reflection/)
+  const publicRead = await publicRegistry.callTool('whale_read_diary', { max_chars: 1000 })
+  assert.doesNotMatch(publicRead.content[0].text, /Private autonomous reflection/)
+  const status = JSON.parse((await daemonRegistry.callTool('whale_status', {})).content[0].text)
+  assert.equal(status.schedulerManaged, true)
+  assert.equal(status.mode, 'autonomous')
 })
