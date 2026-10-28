@@ -74,6 +74,6 @@ This is only a first seam: `lib/scheduler.js` still depends on DSH paths, Bilibi
 
 ## P1 Gate 2 — inbox IO boundary
 
-Bilibili comment/reply/mention reads and the network pause check are now encapsulated in `lib/bilibili-inbox-source.js`. The scheduler accepts an injected `inboxSource`; its cursor, first-run baseline, deduplication, polling interval, failure backoff and delivery rules remain in the scheduler. Unit tests cover `reply` versus combined scope and fail-closed credential/traffic-pause behavior. DM CLI polling and live-room subprocesses remain Bilibili-specific and are not yet extracted.
+Bilibili comment/reply/mention reads and the network pause check are now encapsulated in `lib/bilibili-inbox-source.js`. The scheduler accepts an injected `inboxSource`; its cursor, first-run baseline, deduplication, polling interval, failure backoff and delivery rules remain in the scheduler. Unit tests cover `reply` versus combined scope and fail-closed credential/traffic-pause behavior. DM CLI polling, response/exit-code parsing, and receipt acknowledgement now live in `lib/bilibili-dm-source.js`; the scheduler retains the retry, delivery and acknowledgement state machine. Live-room subprocess handling remains Bilibili-specific and is not yet extracted.
 
 Until all unchecked items pass, do not claim the core runtime is independent of DSH.
