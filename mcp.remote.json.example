@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "whale-agent": {
+      "url": "https://whale.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_A_RANDOM_TOKEN_OF_AT_LEAST_32_CHARACTERS"
+      }
+    }
+  }
+}
