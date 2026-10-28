@@ -14,6 +14,7 @@ function fixture(options = {}) {
     readState: () => state,
     writeState: value => { state = structuredClone(value); writes.push(structuredClone(value)) },
     now: () => currentTime,
+    shouldDefer: options.shouldDefer ?? (() => false),
     makePlanFn: (_config, previous) => previous?.action && previous.action !== 'done' && !previous.fired ? previous : plan,
     completePlanFn: value => ({ ...value, fired: true, woke: value.action === 'wake' }),
     runOnce: async args => {
@@ -88,4 +89,14 @@ test('skip plans are passed through without being rewritten as wake plans', asyn
   const result = await f.scheduler.tick()
   assert.equal(result.status, 'completed')
   assert.equal(f.runs[0].action, 'skip')
+})
+
+
+test('autonomous scheduler defers due wake while external Agent holds a lease', async () => {
+  const f = fixture({ shouldDefer: () => true })
+  const result = await f.scheduler.tick()
+  assert.equal(result.status, 'deferred')
+  assert.equal(f.runs.length, 0)
+  assert.equal(f.state.action, 'wake')
+  assert.equal(f.state.fired, undefined)
 })
