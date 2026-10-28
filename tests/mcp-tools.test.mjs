@@ -103,6 +103,7 @@ test('daemon-only diary tools are not exposed by the public MCP registry', async
   const publicNames = publicRegistry.listTools().map(x => x.name)
   assert.equal(publicNames.includes('whale_record_diary'), false)
   assert.equal(publicNames.includes('whale_read_private_diary'), false)
+  assert.equal(publicNames.includes('whale_search_private_memory'), false)
 
   let activeRunId = null
   const daemonRegistry = createWhaleMcpTools({
@@ -119,6 +120,7 @@ test('daemon-only diary tools are not exposed by the public MCP registry', async
   const daemonNames = daemonRegistry.listTools().map(x => x.name)
   assert.ok(daemonNames.includes('whale_record_diary'))
   assert.ok(daemonNames.includes('whale_read_private_diary'))
+  assert.ok(daemonNames.includes('whale_search_private_memory'))
 
   assert.equal((await daemonRegistry.callTool('whale_record_diary', { entry: 'No active run.' })).isError, true)
   activeRunId = 'daemon-run-1'
@@ -126,6 +128,8 @@ test('daemon-only diary tools are not exposed by the public MCP registry', async
   assert.equal(JSON.parse(recorded.content[0].text).recorded, true)
   const privateRead = await daemonRegistry.callTool('whale_read_private_diary', { max_chars: 1000 })
   assert.match(privateRead.content[0].text, /Private autonomous reflection/)
+  const recalled = await daemonRegistry.callTool('whale_search_private_memory', { query: 'Private autonomous', limit: 5 })
+  assert.match(recalled.content[0].text, /Private autonomous reflection/)
   const publicRead = await publicRegistry.callTool('whale_read_diary', { max_chars: 1000 })
   assert.doesNotMatch(publicRead.content[0].text, /Private autonomous reflection/)
   const status = JSON.parse((await daemonRegistry.callTool('whale_status', {})).content[0].text)
