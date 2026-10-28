@@ -459,3 +459,12 @@ The `feature/core-runtime` branch now has a read-only MCP stdio endpoint and por
 Setup guides: [MCP setup](docs/MCP_SETUP.md), [RSS config example](mcp.rss.json.example), [Skill](skills/bili-whale/SKILL.md), [default MCP config](mcp.json.example).
 
 This remains an interactive read-only preview. It does not expose public posting, commenting, favorites, or message sending, and it does not start the autonomous daemon or a fixed model loop. RSS feeds are explicitly configured, bounded, cached, and checked against local/private-address targets; DNS rebinding remains a documented limitation.
+
+
+## Experimental autonomous Whale daemon
+
+The current branch now includes an opt-in fixed-brain daemon (`npm run whale:daemon`) alongside the read-only MCP server. It uses a configured OpenAI-compatible model API, persistent wake schedule, append-only private/public diary journal, and the same Bilibili or RSS platform runtime.
+
+It is **not enabled by default**. To start it, set `WHALE_AUTONOMY_ENABLED=1`, `WHALE_MODEL_API_KEY` (or `OPENAI_API_KEY`), and `WHALE_MODEL`. The default model endpoint is `https://api.openai.com/v1`; API charges are separate from a ChatGPT subscription.
+
+At this milestone the autonomous model can read platform content and write local diary entries only. It cannot publish, comment, favorite, send messages, or perform other public platform writes. Setup and safety boundaries: [docs/MCP_SETUP.md](docs/MCP_SETUP.md).
