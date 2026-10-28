@@ -12,7 +12,8 @@
   ],
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "mcp:stdio": "node mcp/server.mjs"
   },
   "main": "lib/index.js",
   "exports": {
@@ -34,7 +35,10 @@
     "LISTENER-FIX.md",
     "DM-HISTORY-FIX.md",
     "BUGFIX-2026-10-25.md",
-    "QR-LOGIN-2026-10-25.md"
+    "QR-LOGIN-2026-10-25.md",
+    "mcp",
+    "skills",
+    "mcp.json.example"
   ],
   "dsh": {
     "bundle": {
