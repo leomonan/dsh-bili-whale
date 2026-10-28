@@ -179,3 +179,27 @@ test('handoff completion refuses to reuse a public diary entry for private task 
   }), /non-private handoff entry/)
   assert.equal(f.control.listTasks()[0].status, 'leased')
 })
+
+
+test('external Agent can renew an active lease before expiry and finish the task', t => {
+  const f = fixture(t)
+  const task = f.control.submitTask({ task: 'Analyze a long article' }).task
+  const claim = f.control.claimTask({ agentId: 'codex', taskId: task.id, leaseSeconds: 60 })
+  f.advance(40_000)
+  const renewed = f.control.renewTask({ taskId: task.id, leaseToken: claim.leaseToken, leaseSeconds: 180 })
+  assert.equal(renewed.renewed, true)
+  assert.equal(Date.parse(renewed.task.lease.expiresAt), Date.parse(renewed.task.lease.renewedAt) + 180_000)
+  f.advance(61_000)
+  assert.equal(f.control.hasActiveLease(), true)
+  const completed = f.control.completeTask({ taskId: task.id, leaseToken: claim.leaseToken, result: 'Long analysis complete.' })
+  assert.equal(completed.completed, true)
+})
+
+test('expired or invalid task leases cannot be renewed', t => {
+  const f = fixture(t)
+  const task = f.control.submitTask({ task: 'Long task' }).task
+  const claim = f.control.claimTask({ agentId: 'codex', taskId: task.id, leaseSeconds: 60 })
+  assert.throws(() => f.control.renewTask({ taskId: task.id, leaseToken: 'wrong', leaseSeconds: 600 }), /invalid/)
+  f.advance(61_000)
+  assert.throws(() => f.control.renewTask({ taskId: task.id, leaseToken: claim.leaseToken, leaseSeconds: 600 }), /no active control lease/)
+})
