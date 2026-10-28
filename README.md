@@ -468,3 +468,6 @@ The current branch now includes an opt-in fixed-brain daemon (`npm run whale:dae
 It is **not enabled by default**. To start it, set `WHALE_AUTONOMY_ENABLED=1`, `WHALE_MODEL_API_KEY` (or `OPENAI_API_KEY`), and `WHALE_MODEL`. The default model endpoint is `https://api.openai.com/v1`; API charges are separate from a ChatGPT subscription.
 
 At this milestone the autonomous model can read platform content and write local diary entries only. It cannot publish, comment, favorite, send messages, or perform other public platform writes. Setup and safety boundaries: [docs/MCP_SETUP.md](docs/MCP_SETUP.md).
+
+
+The fixed-brain preview now includes keyword-based recall over the full private diary journal and a process-level E2E test against a local mock OpenAI-compatible API. Semantic/vector retrieval and a real paid-provider run remain unverified.
