@@ -14,7 +14,7 @@ function fixture(t,cfg={}) {
   let time=10*86400000,block='PERSONA-A',busy=false,fail=false,createFail=false
   const sent=[],created=[]
   const args={stateDir:dir,personaPath:path.join(dir,'persona.md'),diaryPaths:[path.join(dir,'whale-diary.md'),path.join(dir,'whale-diary-private.md')],sessionId:'bili-whale',config:()=>cfg,persona:()=>block,now:()=>time,isBusy:()=>busy,
-    transport:{async ensureSession(r){if(createFail)throw Error('create failed');created.push({...r,cwd:dir)},async deliver({request,sessionId,content}){if(fail)throw Error('send failed');sent.push({...request,sessionId,content})}}}
+    transport:{async ensureSession(r){if(createFail)throw Error('create failed');created.push({...r,cwd:dir})},async deliver({request,sessionId,content}){if(fail)throw Error('send failed');sent.push({...request,sessionId,content})}}}
   const request={content:[{type:'text',text:'TASK'}]}
   return {dir,args,sent,created,request,make:()=>createSessionDelivery(args),advance:n=>time+=n,persona:s=>block=s,busy:b=>busy=b,fail:b=>fail=b,createFail:b=>createFail=b}
 }
