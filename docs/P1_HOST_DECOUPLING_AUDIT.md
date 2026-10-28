@@ -92,3 +92,9 @@ The Bilibili wake prompt and its feedback/daily-push context helpers now live in
 ## P1 Gate 8 — platform event workflow extraction
 
 The Bilibili wake, skip, paused, DM, comment/mention and live-room prompt builders now live behind the Bilibili workflow object. The scheduler coordinates polling state and delivery but no longer embeds platform-specific instruction bodies. The DSH compatibility wrapper remains the only place that supplies the DSH host implementation.
+
+## P1 Gate 9 — platform/runtime/path composition moved to host adapter
+
+The core scheduler no longer imports the Bilibili runtime or the DSH night-config reader. It now requires explicit `stateDir`, `configFile`, `homeDir`, `readNightConfig`, `platformRuntime`, and `workflows` dependencies. The DSH compatibility entrypoint composes these dependencies and preserves the previous config-file override, legacy night-config merge, persona/diary paths, and Bilibili runtime defaults.
+
+This gate makes the scheduler implementation host-agnostic at the dependency boundary; the current production adapter is still DSH+Bilibili. The next work is to formalize the platform event contract and add MCP/Skill/Daemon entrypoints.
