@@ -2,7 +2,7 @@
 
 > 方案版本：v1.0（设计稿）  
 > 编制日期：2026-10-28  
-> 状态：P0 已启动；个人 Fork 已建立，agent-main 分支已创建；本轮尚未修改业务代码或部署  
+> 状态：持续开发中；P0 基线和 CI 已完成，P1 宿主解耦 Gate 0–10 已落地，P2 MCP/Skill 只读接入正在实施  
 > 上游：[Alterssss/dsh-bili-whale](https://github.com/Alterssss/dsh-bili-whale)  
 > 基线：`v0.4.6`，`main@8b0009f8ce2ebdc421afcb2e727b19ac18912ec6`（2026-10-25）
 
@@ -280,3 +280,11 @@ dsh-bili-whale/                    # Fork 起始仓库，后续可改显示名
 - 跨 Agent：[MCP TypeScript SDK 服务端说明](https://ts.sdk.modelcontextprotocol.io/server)、[Agent Skills Specification](https://github.com/agentskills/agentskills/blob/main/docs/specification.mdx)。
 - GitHub：[Fork](https://docs.github.com/en/pull-requests/how-tos/work-with-forks/fork-a-repo)、[Sync](https://docs.github.com/en/pull-requests/how-tos/work-with-forks/syncing-a-fork)。
 - 平台能力示例：[YouTube Data API](https://developers.google.com/youtube/data/reference/rest/v3/commentThreads/list) 与 [CommentThread 写入授权](https://developers.google.com/youtube/data/reference/rest/v3/commentThreads/insert)。
+
+## 15. 当前实现进度（2026-10-28）
+
+- **P0 已完成**：个人 Fork、`agent-main` 基线、开发方案、基线记录和 GitHub Actions；原始完整测试集曾独立通过 154/154。
+- **P1 Gate 0–10 已落地**：会话投递合同、B 站收件箱/私信/直播适配器、平台运行时组合、宿主能力隔离、平台工作流抽取、显式可选能力合同。主要 Gate 均有远程 CI 记录。
+- **P2 MCP/Skill 进行中**：新增 stdio MCP 协议入口、只读状态/能力/搜索/feed/内容阅读/公开日记工具、跨 Agent Skill 和配置示例；正在完成完整 CI 与真实 MCP stdio 启动测试。
+- **尚未完成**：独立自主 Daemon、固定模型 API 与工具调用循环、结构化长期记忆、外部 Agent 控制租约、RSS/Web Adapter、写操作审批与跨平台端到端验证。
+- **安全边界**：当前 MCP 工具不公开评论、私信发送、收藏、发布等写操作；MCP 进程不启动自主调度器。不得将此阶段描述为完整自治数字生命。
