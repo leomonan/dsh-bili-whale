@@ -32,16 +32,18 @@ test('Bilibili runtime composes inbox, DM and live adapters over one configured 
     },
   })
 
-  assert.equal(runtime.inboxSource.isPaused(), false)
-  assert.deepEqual((await runtime.inboxSource.pollComments({ scope: 'reply' })).map(x => x.kind), ['reply'])
-  assert.deepEqual(await runtime.dmSource.pollOnce(), { hit: false })
+  assert.equal(runtime.id, 'bilibili')
+  assert.deepEqual(runtime.capabilities, { comments: { read: true }, messages: { read: true }, liveChat: { read: true } })
+  assert.equal(runtime.isPaused(), false)
+  assert.deepEqual((await runtime.comments.pollComments({ scope: 'reply' })).map(x => x.kind), ['reply'])
+  assert.deepEqual(await runtime.messages.pollOnce(), { hit: false })
   assert.deepEqual(calls[0][0], '/runtime/node')
   assert.deepEqual(calls[0][1], ['/plugin/tools/bili.mjs', 'dm-await', '--once', '--json', '--peek'])
   assert.equal(calls[0][2].timeout, 120_000)
   assert.equal(calls[0][2].env, environment)
 
   const onExit = () => {}
-  assert.equal(runtime.liveSource.start({ room: '987', scope: 'room', onExit }), proc)
+  assert.equal(runtime.liveChat.start({ room: '987', scope: 'room', onExit }), proc)
   assert.deepEqual(calls[1][1], [
     path.join('/plugin/tools/commands', 'danmaku-await.mjs'),
     '--room', '987',

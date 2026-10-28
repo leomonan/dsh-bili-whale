@@ -98,3 +98,7 @@ The Bilibili wake, skip, paused, DM, comment/mention and live-room prompt builde
 The core scheduler no longer imports the Bilibili runtime or the DSH night-config reader. It now requires explicit `stateDir`, `configFile`, `homeDir`, `readNightConfig`, `platformRuntime`, and `workflows` dependencies. The DSH compatibility entrypoint composes these dependencies and preserves the previous config-file override, legacy night-config merge, persona/diary paths, and Bilibili runtime defaults.
 
 This gate makes the scheduler implementation host-agnostic at the dependency boundary; the current production adapter is still DSH+Bilibili. The next work is to formalize the platform event contract and add MCP/Skill/Daemon entrypoints.
+
+## P1 Gate 10 — explicit optional platform capabilities
+
+The scheduler now consumes a platform runtime with an ID, a shared pause gate, and explicit optional read capabilities for comments, direct messages, and live chat. It no longer requires every platform to implement all three. Capability-enabled sources are contract-validated; disabled capabilities are not polled. This permits a read-only RSS/web adapter to omit social and live channels without dummy implementations.
