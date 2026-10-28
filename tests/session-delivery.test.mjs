@@ -30,7 +30,7 @@ function fixture(t, options = {}) {
     dshHome,
     cwd: path.join(dshHome, 'work'),
     sessionId: 'whale-main',
-    config: () => options.config ?? { personaOncePerSession: true },
+    config: () => (typeof options.config === 'function' ? options.config() : options.config) ?? { personaOncePerSession: true },
     persona: () => personaText,
     now: () => clock.now,
     log: message => calls.push({ kind: 'log', message }),
