@@ -18,7 +18,7 @@ test('Bilibili wake workflow uses injected config/home paths and preserves platf
     assert.match(text, /走【评论区 @】/)
     assert.doesNotMatch(text, /走【私信】/)
     assert.match(text, /主人关掉了推送/)
-    assert.match(text, /不要在评论区 @ 他/)
+    assert.match(text, /不要走私信 dm/)
     assert.ok(fs.existsSync(path.join(privateDir, 'silence-seen.json')))
   } finally { fs.rmSync(home, { recursive: true, force: true }) }
 })
