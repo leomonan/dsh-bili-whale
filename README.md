@@ -471,3 +471,6 @@ At this milestone the autonomous model can read platform content and write local
 
 
 The fixed-brain preview now includes keyword-based recall over the full private diary journal and a process-level E2E test against a local mock OpenAI-compatible API. Semantic/vector retrieval and a real paid-provider run remain unverified.
+
+
+By default, shared Whale Core memory and task handoff state live in `~/.whale-agent` across platforms; existing Bilibili credentials/configuration remain in `~/.dsh`. Set `WHALE_CORE_HOME` to move only Core state, or `WHALE_HOME` when you intentionally want to move both Core and platform data.
