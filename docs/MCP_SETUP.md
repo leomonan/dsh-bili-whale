@@ -91,3 +91,8 @@ The daemon uses the fixed model and its own persisted schedule, while MCP client
 **Current autonomous safety boundary:** the model can read configured platform content and write a local private/public diary entry. It cannot publish, comment, favorite, send messages, delete, or otherwise mutate platform accounts. Public platform actions are not available in the autonomous tool registry. The daemon does not run unless explicitly enabled.
 
 Model API usage is billed by the selected model provider and is separate from a ChatGPT subscription. A model endpoint must use HTTPS unless it is loopback or `WHALE_MODEL_ALLOW_HTTP=1` is explicitly set. Do not put API keys in repository files or MCP configuration committed to Git.
+
+
+## External Agent handoff
+
+The MCP server exposes `whale_submit_task`, `whale_list_tasks`, `whale_claim_task`, `whale_complete_task`, and `whale_release_task`. These operate only on the local task queue and shared private memory. Claiming a task returns a time-limited lease token; treat it as a secret and use it only for that task. Only one external Agent may hold a lease at a time. The autonomous daemon defers its scheduled wake while the lease is active, then resumes on a later tick. A task completion is saved into the private Whale diary for the fixed-brain model to use on a later wake.
