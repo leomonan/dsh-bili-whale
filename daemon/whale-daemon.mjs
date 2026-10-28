@@ -71,17 +71,16 @@ async function main() {
     || path.join(requestedHome, platformId === 'bilibili' ? 'bili-whale.config.json' : 'whale-agent.config.json')
   if (platformId === 'bilibili') process.env.BILI_WHALE_CONFIG = configFile
 
-  const { dataHome, credentialsFile, platformRuntime } = await loadPlatformRuntime({
+  const { coreHome, dataHome, credentialsFile, platformRuntime } = await loadPlatformRuntime({
     platformId,
     root,
     userHome,
-    dataHome: requestedHome,
   })
 
   // Model configuration is explicit. No model call is attempted unless all required settings exist.
   const modelClient = createOpenAICompatibleModelClient()
-  const memoryStore = createMemoryStore({ stateDir: dataHome })
-  const controlLeaseStore = createControlLeaseStore({ stateDir: dataHome, memoryStore })
+  const memoryStore = createMemoryStore({ stateDir: coreHome, legacyPublicDiaryFile: path.join(dataHome, 'whale-diary.md') })
+  const controlLeaseStore = createControlLeaseStore({ stateDir: coreHome, memoryStore })
   let activeRunId = null
   const registry = createWhaleMcpTools({
     platformRuntime,
@@ -104,7 +103,7 @@ async function main() {
     setActiveRunId: id => { activeRunId = id },
   })
 
-  const scheduleFile = path.join(dataHome, 'whale-night.json')
+  const scheduleFile = path.join(coreHome, 'whale-night.json')
   const readNightConfig = () => {
     const config = readJson(configFile)
     const userNight = config.night && typeof config.night === 'object' ? config.night : {}
@@ -120,8 +119,8 @@ async function main() {
     log: message => process.stderr.write(String(message) + '\n'),
   })
 
-  fs.mkdirSync(dataHome, { recursive: true, mode: 0o700 })
-  const releaseLock = await acquireProcessLock(path.join(dataHome, 'whale-agent-daemon'))
+  fs.mkdirSync(coreHome, { recursive: true, mode: 0o700 })
+  const releaseLock = await acquireProcessLock(path.join(coreHome, 'whale-agent-daemon'))
   const configuredTick = Number(process.env.WHALE_DAEMON_TICK_MS ?? 60_000)
   if (!Number.isInteger(configuredTick) || configuredTick < 5_000 || configuredTick > 300_000) {
     await releaseLock()
@@ -138,7 +137,7 @@ async function main() {
       .finally(() => { currentTick = null })
   }
   const timer = setInterval(launchTick, configuredTick)
-  process.stderr.write('[whale-agent] daemon started; platform=' + platformRuntime.id + '; model=' + modelClient.model + '; dataHome=' + dataHome + '\n')
+  process.stderr.write('[whale-agent] daemon started; platform=' + platformRuntime.id + '; model=' + modelClient.model + '; coreHome=' + coreHome + '; platformDataHome=' + dataHome + '\n')
   launchTick()
 
   await new Promise(resolve => {
