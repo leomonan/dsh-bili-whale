@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRssRuntime } from '../lib/rss-runtime.js'
 import { createWhaleMcpTools } from '../lib/mcp-tools.js'
+import { createMemoryStore } from '../lib/memory-store.js'
 import { runStdioMcpServer } from '../lib/mcp-server.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -44,11 +45,13 @@ if (selectedPlatform === 'rss') {
   throw new Error('Unsupported WHALE_PLATFORM: ' + selectedPlatform + ' (supported: bilibili, rss)')
 }
 
+const memoryStore = createMemoryStore({ stateDir: dataHome })
 const registry = createWhaleMcpTools({
   platformRuntime,
   stateDir: dataHome,
   homeDir: userHome,
   credentialsFile,
+  memoryStore,
 })
 
 try {
