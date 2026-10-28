@@ -131,3 +131,16 @@ test('task idempotency key cannot be reused for a different payload', t => {
   }), /different task parameters/)
   assert.equal(f.control.listTasks().length, 1)
 })
+
+
+test('completed task retries with the same lease must preserve the original result payload', t => {
+  const f = fixture(t)
+  const task = f.control.submitTask({ task: 'Summarize a page' }).task
+  const claim = f.control.claimTask({ agentId: 'codex', taskId: task.id })
+  f.control.completeTask({ taskId: task.id, leaseToken: claim.leaseToken, result: 'Original result.' })
+  assert.throws(() => f.control.completeTask({
+    taskId: task.id,
+    leaseToken: claim.leaseToken,
+    result: 'Different retry result.',
+  }), /different result payload/)
+})
