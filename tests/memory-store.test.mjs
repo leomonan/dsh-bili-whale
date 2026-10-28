@@ -62,3 +62,10 @@ test('memory journal reports empty state without creating files', t => {
   })
   assert.equal(fs.existsSync(f.store.journalFile), false)
 })
+
+
+test('memory journal corruption is reported instead of silently losing history', t => {
+  const f = fixture(t)
+  fs.writeFileSync(f.store.journalFile, '{"type":"diary","runId":"ok"}\nnot-json\n')
+  assert.throws(() => f.store.readPrivateDiary(), /malformed entry/)
+})
