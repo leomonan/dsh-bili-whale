@@ -144,3 +144,18 @@ test('completed task retries with the same lease must preserve the original resu
     result: 'Different retry result.',
   }), /different result payload/)
 })
+
+
+test('expired lease is persisted as pending even when a new submission hits queue capacity', t => {
+  const f = fixture(t)
+  const tasks = []
+  for (let i = 0; i < 100; i += 1) {
+    tasks.push(f.control.submitTask({ task: 'Queue task ' + i }).task)
+  }
+  const claimed = f.control.claimTask({ agentId: 'codex', taskId: tasks[0].id, leaseSeconds: 60 })
+  f.advance(61_000)
+  assert.throws(() => f.control.submitTask({ task: 'Must be rejected at capacity' }), /queue is full/)
+  const persisted = JSON.parse(fs.readFileSync(path.join(f.dir, 'whale-control.json'), 'utf8'))
+  assert.equal(persisted.tasks.find(item => item.id === tasks[0].id).status, 'pending')
+  assert.ok(claimed.leaseToken)
+})
