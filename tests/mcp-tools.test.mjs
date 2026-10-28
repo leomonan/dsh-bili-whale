@@ -162,6 +162,7 @@ test('MCP external Agent can claim and complete a local task without platform wr
   const names = registry.listTools().map(x => x.name)
   assert.ok(names.includes('whale_submit_task'))
   assert.ok(names.includes('whale_claim_task'))
+  assert.ok(names.includes('whale_renew_task'))
   assert.ok(names.includes('whale_complete_task'))
   assert.ok(names.includes('whale_release_task'))
   assert.equal(names.some(x => /publish|send_message|comment_write|favorite_write/.test(x)), false)
@@ -183,6 +184,12 @@ test('MCP external Agent can claim and complete a local task without platform wr
   const status = JSON.parse((await registry.callTool('whale_status', {})).content[0].text)
   assert.equal(status.externalControlLease.taskId, submitted.task.id)
   assert.equal(JSON.stringify(status).includes(token), false)
+  const renewed = JSON.parse((await registry.callTool('whale_renew_task', {
+    task_id: submitted.task.id,
+    lease_token: token,
+    lease_seconds: 900,
+  })).content[0].text)
+  assert.equal(renewed.renewed, true)
 
   const completed = JSON.parse((await registry.callTool('whale_complete_task', {
     task_id: submitted.task.id,
