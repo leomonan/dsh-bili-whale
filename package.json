@@ -38,7 +38,9 @@
     "QR-LOGIN-2026-10-25.md",
     "mcp",
     "skills",
-    "mcp.json.example"
+    "mcp.json.example",
+    "mcp.rss.json.example",
+    "docs/MCP_SETUP.md"
   ],
   "dsh": {
     "bundle": {
