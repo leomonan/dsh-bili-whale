@@ -88,3 +88,7 @@ This removes direct DSH session-controller and session-file assumptions from `li
 ## P1 Gate 7 — Bilibili wake workflow extraction
 
 The Bilibili wake prompt and its feedback/daily-push context helpers now live in `lib/bilibili-workflows.js`, constructed with explicit config and home paths. The scheduler calls the workflow interface instead of owning the wake prompt text. This is an incremental extraction; comment, DM and live event prompt bodies are still inline in the scheduler and remain the next workflow extraction target.
+
+## P1 Gate 8 — platform event workflow extraction
+
+The Bilibili wake, skip, paused, DM, comment/mention and live-room prompt builders now live behind the Bilibili workflow object. The scheduler coordinates polling state and delivery but no longer embeds platform-specific instruction bodies. The DSH compatibility wrapper remains the only place that supplies the DSH host implementation.
