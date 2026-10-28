@@ -135,6 +135,7 @@ test('daemon-only diary tools are not exposed by the public MCP registry', async
   const status = JSON.parse((await daemonRegistry.callTool('whale_status', {})).content[0].text)
   assert.equal(status.schedulerManaged, true)
   assert.equal(status.mode, 'autonomous')
+  assert.equal(status.diaryAvailable, true)
 })
 
 
