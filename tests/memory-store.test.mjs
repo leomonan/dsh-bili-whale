@@ -82,3 +82,19 @@ test('diary run idempotency survives journals larger than the bounded read windo
   assert.equal(retry.duplicate, true)
   assert.equal(retry.existingEntry, 'Original durable result.')
 })
+
+
+test('memory search finds older entries beyond the diary display window and filters visibility', t => {
+  const f = fixture(t)
+  f.store.recordDiary({ runId: 'old-private', entry: 'We learned about a resilient whale control lease.', visibility: 'private', platform: 'rss' })
+  f.store.recordDiary({ runId: 'public-note', entry: 'A public whale story.', visibility: 'public', platform: 'rss' })
+  for (let i = 0; i < 300; i += 1) {
+    f.store.recordDiary({ runId: 'padding-' + i, entry: 'Unrelated routine note number ' + i })
+  }
+  const result = f.store.searchDiary({ query: 'control lease', visibility: 'private', limit: 5 })
+  assert.equal(result.count, 1)
+  assert.equal(result.results[0].runId, 'old-private')
+  assert.match(result.results[0].excerpt, /resilient whale control lease/)
+  assert.equal(f.store.searchDiary({ query: 'whale story', visibility: 'private' }).count, 0)
+  assert.equal(f.store.searchDiary({ query: 'whale story', visibility: 'public' }).count, 1)
+})
