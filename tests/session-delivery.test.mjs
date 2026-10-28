@@ -12,13 +12,14 @@ function fixture(t, options = {}) {
   const calls = []
   const clock = { now: options.now ?? 1_000_000 }
   let personaText = options.persona ?? 'PERSONA v1'
-  const controller = {
-    async create(input) {
-      calls.push({ kind: 'create', input: structuredClone(input) })
+  const transport = {
+    async ensureSession({ sessionId }) {
+      calls.push({ kind: 'create', input: { sessionId } })
       if (options.createError) throw options.createError
-      return { sessionId: input.sessionId }
+      return { sessionId }
     },
-    async prompt(input, signal) {
+    async deliver({ request, sessionId, content, signal }) {
+      const input = { ...request, sessionId, content }
       calls.push({ kind: 'prompt', input: structuredClone(input) })
       if (options.onPrompt) await options.onPrompt(input, signal, calls)
       if (options.promptError) throw options.promptError
@@ -26,9 +27,10 @@ function fixture(t, options = {}) {
     },
   }
   const delivery = createSessionDelivery({
-    controller,
-    dshHome,
-    cwd: path.join(dshHome, 'work'),
+    transport,
+    stateDir: dshHome,
+    personaPath: path.join(dshHome, 'persona.md'),
+    diaryPaths: [path.join(dshHome, 'whale-diary.md'), path.join(dshHome, 'whale-diary-private.md')],
     sessionId: 'whale-main',
     config: () => (typeof options.config === 'function' ? options.config() : options.config) ?? { personaOncePerSession: true },
     persona: () => personaText,
@@ -38,7 +40,7 @@ function fixture(t, options = {}) {
     isBusy: options.isBusy ?? (() => false),
   })
   return {
-    dshHome, calls, clock, controller, delivery,
+    dshHome, calls, clock, delivery,
     setPersona(value) { personaText = value },
     state() {
       return JSON.parse(fs.readFileSync(path.join(dshHome, 'whale-session.json'), 'utf8'))
@@ -59,7 +61,7 @@ test('first delivery creates the session, injects persona and diary recovery, an
   const create = f.calls.find(x => x.kind === 'create')
   const prompt = f.calls.find(x => x.kind === 'prompt')
   assert.equal(create.input.sessionId, 'whale-main')
-  assert.equal(create.input.cwd, path.join(f.dshHome, 'work'))
+  assert.deepEqual(create.input, { sessionId: 'whale-main' }, 'core transport does not know host-specific cwd')
   assert.equal(prompt.input.sessionId, 'whale-main')
   assert.match(prompt.input.content[0].text, /^PERSONA v1/)
   assert.match(prompt.input.content[0].text, /先读本地日记恢复记忆/)

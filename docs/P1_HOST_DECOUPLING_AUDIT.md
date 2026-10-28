@@ -62,8 +62,14 @@ Target: platform events become injected sources; existing Bilibili implementatio
 
 - [x] Read the host entrypoint, scheduler, session delivery, Bilibili traffic/API and config boundaries.
 - [x] Identify the smallest plausible host-neutral seam.
-- [ ] Inventory exact existing tests and run the relevant test subset.
-- [ ] Add behavior-characterization tests before changing delivery code.
+- [x] Inventory exact existing tests and run the relevant test subset (full CI passed 160/160 before the adapter extraction).
+- [x] Add behavior-characterization tests before changing delivery code.
 - [ ] Independent reviewer verifies no state/ack semantics were omitted.
+
+## P1 Gate 1 — delivery transport seam
+
+The session-delivery state machine now depends on a host-neutral `SessionTransport` contract (`ensureSession`, `deliver`). The DSH mapping is isolated in `lib/dsh-session-transport.js`; scheduler configuration injects the same state, persona, and diary paths as before. Characterization tests cover queue ordering, persona injection, persisted pending requests, acknowledgements, and session rotation. The DSH adapter has separate mapping tests.
+
+This is only a first seam: `lib/scheduler.js` still depends on DSH paths, Bilibili polling, and CLI subprocesses. Do not claim the whole runtime is host-independent until those boundaries are extracted and independently tested.
 
 Until all unchecked items pass, do not claim the core runtime is independent of DSH.
