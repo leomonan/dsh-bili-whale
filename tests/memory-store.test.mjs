@@ -69,3 +69,16 @@ test('memory journal corruption is reported instead of silently losing history',
   fs.writeFileSync(f.store.journalFile, '{"type":"diary","runId":"ok"}\nnot-json\n')
   assert.throws(() => f.store.readPrivateDiary(), /malformed entry/)
 })
+
+
+test('diary run idempotency survives journals larger than the bounded read window', t => {
+  const f = fixture(t)
+  const first = f.store.recordDiary({ runId: 'old-run', entry: 'Original durable result.' })
+  assert.equal(first.recorded, true)
+  const padding = JSON.stringify({ type: 'other', pad: 'x'.repeat(4000) }) + '\n'
+  fs.appendFileSync(f.store.journalFile, padding.repeat(300))
+  assert.ok(fs.statSync(f.store.journalFile).size > 1_000_000)
+  const retry = f.store.recordDiary({ runId: 'old-run', entry: 'Conflicting retry must not append.' })
+  assert.equal(retry.duplicate, true)
+  assert.equal(retry.existingEntry, 'Original durable result.')
+})
