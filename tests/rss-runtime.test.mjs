@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
+import { Readable } from 'node:stream'
 import { createRssRuntime, validatePublicFeedUrl } from '../lib/rss-runtime.js'
 
 const rssXml = [
@@ -173,4 +175,61 @@ test('RSS source failures are briefly cached to avoid hammering a failing host',
   f.advance(1001)
   await assert.rejects(f.rss.content.feed(), /All configured RSS feeds failed/)
   assert.equal(f.calls.length, 2)
+})
+
+
+test('default RSS transport pins the socket to the validated IP while preserving Host and TLS SNI', async () => {
+  let captured
+  let requests = 0
+  const runtime = createRssRuntime({
+    feeds: [{ name: 'Pinned', url: 'https://feeds.example.com/rss.xml' }],
+    resolveHost: publicResolver,
+    requestImpl: (options, callback) => {
+      captured = options
+      requests += 1
+      const req = new EventEmitter()
+      req.setTimeout = () => {}
+      req.destroy = error => req.emit('error', error)
+      req.end = () => {
+        const res = Readable.from([Buffer.from(rssXml)])
+        res.statusCode = 200
+        res.headers = {
+          'content-type': 'application/rss+xml',
+          'content-length': String(Buffer.byteLength(rssXml)),
+        }
+        callback(res)
+      }
+      return req
+    },
+  })
+  const result = await runtime.content.feed()
+  assert.equal(result.items.length, 2)
+  assert.equal(requests, 1)
+  assert.equal(captured.hostname, '93.184.216.34')
+  assert.equal(captured.servername, 'feeds.example.com')
+  assert.equal(captured.headers.host, 'feeds.example.com')
+  assert.equal(captured.protocol, 'https:')
+})
+
+test('default RSS transport refuses redirects rather than resolving a second destination', async () => {
+  let requests = 0
+  const runtime = createRssRuntime({
+    feeds: [{ name: 'Redirect', url: 'https://feeds.example.com/rss.xml' }],
+    resolveHost: publicResolver,
+    requestImpl: (_options, callback) => {
+      const req = new EventEmitter()
+      req.setTimeout = () => {}
+      req.destroy = error => req.emit('error', error)
+      req.end = () => {
+        requests += 1
+        const res = Readable.from(['redirect'])
+        res.statusCode = 302
+        res.headers = { location: 'http://127.0.0.1/private', 'content-length': '8' }
+        callback(res)
+      }
+      return req
+    },
+  })
+  await assert.rejects(runtime.content.feed(), /HTTP 302/)
+  assert.equal(requests, 1)
 })
