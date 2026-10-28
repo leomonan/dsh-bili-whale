@@ -115,7 +115,7 @@ test('completion fails closed when a retry conflicts with the result already in 
     taskId: task.id,
     leaseToken: claim.leaseToken,
     result: 'New conflicting result.',
-  }), /different handoff result/)
+  }), /conflicting or non-private handoff entry/)
   assert.equal(f.control.listTasks()[0].status, 'leased')
 })
 
