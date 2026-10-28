@@ -110,3 +110,10 @@ Added a stdio MCP protocol endpoint and a capability-aware tool registry. Initia
 ## P2 Gate 12 — portable Agent Skill and connection example
 
 Added `skills/bili-whale/SKILL.md`, `mcp.json.example`, and the `mcp:stdio` package script. The Skill explains how to use the shared Whale MCP instance and marks all platform content as untrusted data. The MCP status response explicitly says that this process does not manage the autonomous scheduler. This is an interactive read-only integration milestone, not yet the fixed-brain daemon or full C-mode handoff.
+
+
+## P2 Gate 13 — RSS/Atom read-only adapter
+
+Added `lib/rss-runtime.js` implementing the same `platformRuntime.content.search/feed/read` contract without Bilibili imports. Feed URLs are owner-configured (maximum 10), HTTPS-only by default, credential-free, IP-literal-free, nonstandard ports are rejected, DNS answers are checked for public addresses, redirects are rejected, response bodies are bounded to 1 MB, requests time out, successful responses are cached for five minutes, and failures are briefly cached to avoid repeatedly hitting an unavailable host. RSS/Atom content IDs are stable hashes of the configured source and entry identity. The MCP server selects `WHALE_PLATFORM=rss` and stores state under `WHALE_HOME`/`~/.whale-agent`; no Bilibili login is needed. The RSS mode only advertises content search/feed/read and public diary/status tools.
+
+Known limitation: the built-in Fetch API resolves DNS again during connection, so a DNS rebinding race cannot be fully eliminated by preflight DNS checks alone. RSS sources must be configured by the owner and should come from trusted public hosts. Autonomous scheduling, model API calls, and public write operations are not part of this gate.
