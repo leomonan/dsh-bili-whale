@@ -41,6 +41,9 @@ function normalizeIssuer(value) {
   if (url.protocol !== 'https:' || url.username || url.password || url.port || (url.pathname !== '/' && url.pathname !== '') || url.search || url.hash) {
     throw new AuthFailure(503, 'CF_ACCESS_TEAM_DOMAIN must be an HTTPS origin without path, credentials, port, query, or fragment')
   }
+  if (!url.hostname.toLowerCase().endsWith('.cloudflareaccess.com')) {
+    throw new AuthFailure(503, 'CF_ACCESS_TEAM_DOMAIN must use the Cloudflare Access team domain')
+  }
   return url.origin
 }
 
@@ -105,8 +108,13 @@ function originUrlFromEnv(env) {
   if (typeof env.WHALE_MCP_ORIGIN_URL !== 'string' || !env.WHALE_MCP_ORIGIN_URL.trim()) throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_URL is required')
   let url
   try { url = new URL(env.WHALE_MCP_ORIGIN_URL) } catch { throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_URL is invalid') }
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search || !url.pathname.endsWith('/mcp')) {
-    throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_URL must be HTTPS, contain no credentials/query/fragment, and end in /mcp')
+  const hostname = url.hostname.toLowerCase()
+  const isLocalHostname = hostname === 'localhost' || hostname.endsWith('.localhost')
+    || hostname.endsWith('.local') || hostname.endsWith('.internal') || hostname.endsWith('.test')
+  const isIpLiteral = hostname.includes(':') || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)
+  if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search || !url.pathname.endsWith('/mcp')
+      || isLocalHostname || isIpLiteral) {
+    throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_URL must use a public HTTPS hostname, contain no credentials/query/fragment, and end in /mcp')
   }
   if (typeof env.WHALE_MCP_ORIGIN_TOKEN !== 'string' || env.WHALE_MCP_ORIGIN_TOKEN.length < 32) {
     throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_TOKEN must be a configured secret of at least 32 characters')

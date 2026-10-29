@@ -172,6 +172,7 @@ test('origin allowlist, path, method, body size and upstream URL are fail-closed
   const huge = request(token, { body: 'x'.repeat(1_000_001) })
   assert.equal((await fixture.gateway.fetch(huge, fixture.env)).status, 413)
   assert.equal((await fixture.gateway.fetch(request(token), { ...fixture.env, WHALE_MCP_ORIGIN_URL: 'http://origin.example.com/mcp' })).status, 503)
+  assert.equal((await fixture.gateway.fetch(request(token), { ...fixture.env, WHALE_MCP_ORIGIN_URL: 'https://127.0.0.1/mcp' })).status, 503)
   assert.equal(fixture.upstreamCall, null)
 })
 
@@ -231,4 +232,14 @@ test('opaque OAuth bearer token alone is never accepted as the Access origin ass
   assert.equal(response.status, 401)
   assert.equal(jwksCalls, 0)
   assert.equal(originCalls, 0)
+})
+
+
+test('Cloudflare Access issuer must use the configured Cloudflare team domain', async () => {
+  const signer = await makeSigner()
+  let fetchCalls = 0
+  const gateway = createCloudflareMcpGateway({ fetchImpl: async () => { fetchCalls += 1; return Response.json({ keys: [signer.publicJwk] }) } })
+  const response = await gateway.fetch(request(await signer.sign()), { ...ENV, CF_ACCESS_TEAM_DOMAIN: 'https://attacker.example.com' })
+  assert.equal(response.status, 503)
+  assert.equal(fetchCalls, 0)
 })
