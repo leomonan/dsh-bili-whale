@@ -142,16 +142,18 @@ test('unknown signing key refreshes JWKS once and remains fail-closed if still u
 })
 
 test('JWKS outage returns 503 and does not call the origin', async () => {
-  let originCalls = 0
+  const signer = await makeSigner()
+  let fetchCalls = 0
   const gateway = createCloudflareMcpGateway({
     fetchImpl: async () => {
-      originCalls += 1
+      fetchCalls += 1
       return Response.json({ error: 'unavailable' }, { status: 503 })
     },
   })
-  const response = await gateway.fetch(request('a'.repeat(40)), ENV)
+  const token = await signer.sign()
+  const response = await gateway.fetch(request(token), ENV)
   assert.equal(response.status, 503)
-  assert.equal(originCalls, 1)
+  assert.equal(fetchCalls, 1, 'only the JWKS endpoint should be requested')
 })
 
 test('origin allowlist, path, method, body size and upstream URL are fail-closed', async () => {
