@@ -2,9 +2,10 @@ name: Test
 
 on:
   push:
-    branches: [agent-main, "feature/**"]
+    branches: [agent-main]
   pull_request:
     branches: [agent-main]
+  workflow_dispatch:
 
 permissions:
   contents: read
