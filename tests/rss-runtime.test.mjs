@@ -233,3 +233,26 @@ test('default RSS transport refuses redirects rather than resolving a second des
   await assert.rejects(runtime.content.feed(), /HTTP 302/)
   assert.equal(requests, 1)
 })
+
+test('asynchronous bodyless or invalid RSS responses fail without crashing the process', async () => {
+  for (const status of [204, 205, 304, 101]) {
+    const runtime = createRssRuntime({
+      feeds: [{ name: 'Bodyless', url: 'https://feeds.example.com/rss.xml' }],
+      resolveHost: publicResolver,
+      requestImpl: (_options, callback) => {
+        const req = new EventEmitter()
+        req.setTimeout = () => {}
+        req.destroy = error => req.emit('error', error)
+        req.end = () => setImmediate(() => {
+          const res = Readable.from([])
+          res.statusCode = status
+          res.headers = {}
+          callback(res)
+        })
+        return req
+      },
+    })
+    const expected = status === 304 ? /HTTP 304/ : status === 101 ? /All configured RSS feeds failed/ : /not a supported RSS\/Atom XML feed/
+    await assert.rejects(runtime.content.feed(), expected)
+  }
+})
