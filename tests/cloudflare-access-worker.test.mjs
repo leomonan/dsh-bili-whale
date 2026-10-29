@@ -206,3 +206,29 @@ test('origin service-token credentials are mandatory before proxying', async () 
   }
   assert.equal(fixture.upstreamCall, null)
 })
+
+
+test('opaque OAuth bearer token alone is never accepted as the Access origin assertion', async () => {
+  const signer = await makeSigner()
+  let jwksCalls = 0
+  let originCalls = 0
+  const gateway = createCloudflareMcpGateway({
+    fetchImpl: async input => {
+      if (String(input instanceof Request ? input.url : input).endsWith('/cdn-cgi/access/certs')) {
+        jwksCalls += 1
+        return Response.json({ keys: [signer.publicJwk] })
+      }
+      originCalls += 1
+      return Response.json({ ok: true })
+    },
+  })
+  const req = new Request('https://whale.example.com/mcp', {
+    method: 'POST',
+    headers: { authorization: 'Bearer oauth:opaque-token-from-managed-oauth', 'content-type': 'application/json' },
+    body: '{}',
+  })
+  const response = await gateway.fetch(req, ENV)
+  assert.equal(response.status, 401)
+  assert.equal(jwksCalls, 0)
+  assert.equal(originCalls, 0)
+})
