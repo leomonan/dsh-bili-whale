@@ -119,3 +119,119 @@ test('opt-in daemon completes one wake through a local mock model API without pa
   child.kill('SIGTERM')
   await Promise.race([new Promise(resolve => child.once('exit', resolve)), delay(3000)])
 })
+
+
+test('real daemon restart reuses an already persisted private diary receipt without calling the model twice', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-daemon-restart-'))
+  const home = path.join(dir, 'home')
+  const coreHome = path.join(home, '.whale-agent')
+  fs.mkdirSync(coreHome, { recursive: true })
+  const now = Date.now()
+  const day = new Date(now).toLocaleDateString('sv-SE')
+  fs.writeFileSync(path.join(coreHome, 'whale-night.json'), JSON.stringify({
+    schema: 2,
+    date: day,
+    wakes: 0,
+    wokeAt: null,
+    usedCount: {},
+    skippedWindows: [],
+    action: 'wake',
+    fired: false,
+    woke: false,
+    atMs: now - 5_000,
+    atText: day + ' 20:30',
+    window: '20:00–24:00',
+    windowKey: day + '|20:00–24:00',
+    startsAt: now - 60_000,
+    endsAt: now + 60_000,
+    maxVideos: 5,
+  }, null, 2))
+
+  let modelRequests = 0
+  const modelServer = http.createServer(async (req, res) => {
+    for await (const _chunk of req) {} // Consume request body; no external network access.
+    modelRequests += 1
+    if (modelRequests === 1) {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({
+        model: 'test-fixed-model',
+        choices: [{ index: 0, finish_reason: 'tool_calls', message: {
+          role: 'assistant', content: null,
+          tool_calls: [{ id: 'first-record', type: 'function', function: {
+            name: 'whale_record_diary',
+            arguments: JSON.stringify({ entry: 'A private reflection persisted before interruption.', mood: 'quiet' }),
+          } }],
+        } }],
+        usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+      }))
+    } else {
+      // The first process may ask for a final completion after diary persistence,
+      // but that confirmation fails. A restarted process must make no more calls.
+      res.writeHead(503, { 'content-type': 'text/plain' })
+      res.end('Simulated provider failure after durable diary write')
+    }
+  })
+  await new Promise(resolve => modelServer.listen(0, '127.0.0.1', resolve))
+  const addr = modelServer.address()
+  const daemonPath = fileURLToPath(new URL('../daemon/whale-daemon.mjs', import.meta.url))
+  const env = {
+    ...process.env,
+    HOME: home,
+    USERPROFILE: home,
+    WHALE_PLATFORM: 'rss',
+    WHALE_HOME: coreHome,
+    WHALE_RSS_FEEDS: JSON.stringify([{ name: 'Test', url: 'https://feeds.example.com/rss.xml' }]),
+    WHALE_AUTONOMY_ENABLED: '1',
+    WHALE_MODEL_API_KEY: 'mock-api-key',
+    WHALE_MODEL: 'test-fixed-model',
+    WHALE_MODEL_BASE_URL: 'http://127.0.0.1:' + addr.port + '/v1',
+    WHALE_DAEMON_TICK_MS: '5000',
+  }
+  delete env.WHALE_CONFIG
+  delete env.WHALE_CORE_HOME
+  const journalPath = path.join(coreHome, 'whale-agent-memory.jsonl')
+  const schedulePath = path.join(coreHome, 'whale-night.json')
+  const children = []
+  async function stop(child) {
+    if (child.exitCode !== null) return
+    child.kill('SIGTERM')
+    await Promise.race([new Promise(resolve => child.once('exit', resolve)), delay(3_000)])
+    if (child.exitCode === null) child.kill('SIGKILL')
+  }
+  function launch() {
+    const child = spawn(process.execPath, [daemonPath], { env, stdio: ['ignore', 'ignore', 'pipe'] })
+    child.stderr.resume()
+    children.push(child)
+    return child
+  }
+  t.after(async () => {
+    for (const child of children) await stop(child)
+    await new Promise(resolve => modelServer.close(resolve))
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  const first = launch()
+  const firstDeadline = Date.now() + 12_000
+  while (!fs.existsSync(journalPath) && Date.now() < firstDeadline && first.exitCode === null) await delay(50)
+  assert.equal(fs.existsSync(journalPath), true, 'First daemon should persist the diary before interruption')
+  const pending = JSON.parse(fs.readFileSync(schedulePath, 'utf8'))
+  assert.equal(pending.fired, false, 'First daemon must not mark wake complete before the model finishes')
+  await stop(first)
+  const requestsBeforeRestart = modelRequests
+  assert.ok(requestsBeforeRestart >= 1)
+
+  const second = launch()
+  let completed = false
+  const secondDeadline = Date.now() + 12_000
+  while (!completed && Date.now() < secondDeadline && second.exitCode === null) {
+    completed = JSON.parse(fs.readFileSync(schedulePath, 'utf8')).fired === true
+    if (!completed) await delay(50)
+  }
+  assert.equal(completed, true, 'Restart should complete the persisted pending wake')
+  assert.equal(modelRequests, requestsBeforeRestart, 'Restart must not invoke the model again')
+  const journal = fs.readFileSync(journalPath, 'utf8').trim().split(/\r?\n/).map(line => JSON.parse(line))
+  assert.equal(journal.length, 1, 'Restart must not add another diary entry')
+  assert.equal(journal[0].visibility, 'private')
+  assert.match(journal[0].entry, /persisted before interruption/)
+  await stop(second)
+})
