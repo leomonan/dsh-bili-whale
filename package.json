@@ -22,7 +22,8 @@
     "mcp:stdio": "node mcp/server.mjs",
     "whale:daemon": "node daemon/whale-daemon.mjs",
     "mcp:http": "node mcp/http-server.mjs",
-    "whale:provider-smoke": "node scripts/provider-smoke.mjs"
+    "whale:provider-smoke": "node scripts/provider-smoke.mjs",
+    "cloudflare:smoke": "node scripts/cloudflare-access-smoke.mjs"
   },
   "main": "lib/index.js",
   "exports": {

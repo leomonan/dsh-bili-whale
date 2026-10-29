@@ -119,6 +119,16 @@ A Worker-native edge gateway is provided at workers/whale-mcp-gateway.js. It ver
 
 This Worker is the OAuth-secured edge gateway, not a claim that the file-backed Whale Core has already been ported to Workers. The existing Node.js MCP origin, file-backed task/memory stores, and autonomous daemon still run outside the Worker. Keep the origin private behind Cloudflare Tunnel or an equivalent HTTPS endpoint. A later Workers-native Core migration must move persistent state to Durable Objects, D1, or another explicit storage binding and replace Node-only Bilibili dependencies before retiring the Node origin.
 
+### Read-only integration smoke test
+
+After configuring a dedicated non-production hostname, run the optional unauthenticated check:
+
+~~~sh
+WHALE_RUN_CLOUDFLARE_SMOKE=1 WHALE_CLOUDFLARE_TEST_URL=https://mcp-test.example.com npm run cloudflare:smoke
+~~~
+
+The script performs only a GET to OAuth authorization-server metadata and a POST without credentials to the protected /mcp endpoint. It expects valid HTTPS authorization/token endpoints and a 401 response with WWW-Authenticate from Access. It never logs in, requests tokens, sends credentials, calls an MCP tool, or changes Cloudflare configuration. It is a discovery/challenge check, not a substitute for a browser-based OAuth authorization-code flow or a real hosted Agent connection.
+
 ### Required Cloudflare configuration
 
 1. Copy wrangler.example.jsonc to a local wrangler.jsonc and replace the placeholder Access team domain, Access application's exact Audience (AUD) tag, HTTPS origin URL, and approved browser origins.
