@@ -306,5 +306,6 @@ The shared `coreHome` is now independent from `dataHome`: Core memory, wake sche
 - **租约并发证据**：两个独立进程竞争时仅一个能获得活动租约；新的 Store 实例可根据持久过期时间回收租约。
 - **MCP 2026-07-28 现代协议**：stdio 与 HTTP 共用同一工具注册表；支持无握手的 `server/discover`、`tools/list`、`tools/call`，保留 2025-era handshake/session 兼容路径。`server/discover` 只公布无状态现代版本，`clientInfo` 可省略但若提供必须合法。
 - **HTTP 请求头安全**：现代请求校验 `MCP-Protocol-Version`、`Mcp-Method` 和 `Mcp-Name` 与请求正文一致；严格校验 `Mcp-Name` 的 Base64 sentinel，拒绝缺失协议头、畸形编码和不匹配路由字段。显式但畸形的现代 stdio envelope 不得回落到旧握手错误。
-- **最新回归证据**：`feature/core-runtime@94e12c00a33c435e402c1eac480fb731c1b87007` 完整 CI 为 **277 passed / 0 failed**；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40825616294)。
+- **远程传输默认安全**：非 loopback 的明文 HTTP 绑定在没有显式 `WHALE_MCP_TRUST_PROXY_TLS=1` 时 fail-closed；推荐只绑定 loopback 并由 TLS 反向代理对外服务。该变量只是运维断言，不会自行启用 TLS。
+- **最新回归证据**：`feature/core-runtime@d36006578c96efa29113daa3c67cf656319c130d` 完整 CI 为 **278 passed / 0 failed**；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40825822089)。
 - **仍未宣称通过的发布门**：真实付费模型调用、真实 B 站账号 E2E、真实托管 Agent 的 OAuth/TLS 互操作、原 DSH 宿主功能保真和公网运行配置。以上必须在明确授权的实际环境中单独验收，不以 mock 或协议单测替代。
