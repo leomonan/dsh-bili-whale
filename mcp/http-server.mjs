@@ -37,6 +37,9 @@ async function main() {
   if (!isLoopback && allowedOrigins.length === 0) {
     throw new Error('Set WHALE_MCP_ALLOWED_ORIGINS before binding HTTP MCP to a non-loopback host')
   }
+  if (!isLoopback && process.env.WHALE_MCP_TRUST_PROXY_TLS !== '1') {
+    throw new Error('Non-loopback HTTP MCP is plaintext. Bind to loopback behind a trusted TLS-terminating proxy, or set WHALE_MCP_TRUST_PROXY_TLS=1 only when a trusted TLS terminator protects every client connection.')
+  }
 
   const app = createMcpHttpServer({
     registry,
