@@ -155,11 +155,18 @@ async function handleRequest(request, env, fetchImpl, now, cache) {
     const originUrl = originUrlFromEnv(env)
     const body = request.method === 'POST' ? await readBoundedBody(request) : undefined
     const headers = new Headers()
+    const forwardedHeaders = new Set([
+      'accept',
+      'content-type',
+      'mcp-protocol-version',
+      'mcp-method',
+      'mcp-name',
+      'mcp-session-id',
+      'last-event-id',
+    ])
     for (const [name, value] of request.headers) {
       const lower = name.toLowerCase()
-      if (lower === 'authorization' || lower === 'cookie' || lower.startsWith('cf-access-')
-          || lower === 'host' || lower === 'content-length' || lower === 'origin' || lower === 'connection') continue
-      headers.set(name, value)
+      if (forwardedHeaders.has(lower)) headers.set(lower, value)
     }
     headers.set('authorization', 'Bearer ' + env.WHALE_MCP_ORIGIN_TOKEN)
     if (request.method === 'POST' && !headers.has('content-type')) throw new AuthFailure(415, 'Content-Type is required for MCP POST requests')
