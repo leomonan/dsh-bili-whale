@@ -83,6 +83,17 @@ test('control store rejects malformed persisted state instead of discarding task
   assert.throws(() => f.control.listTasks(), /invalid/)
 })
 
+test('control store fails closed on a stale lock file from the previous lock format', t => {
+  const f = fixture(t)
+  const legacyLock = path.join(f.dir, '.whale-control.lock')
+  fs.writeFileSync(legacyLock, JSON.stringify({ pid: 2_147_483_647, at: 0 }))
+  const oldTime = new Date(Date.now() - 6_000)
+  fs.utimesSync(legacyLock, oldTime, oldTime)
+
+  assert.throws(() => f.control.listTasks(), /stale legacy Whale control lock needs manual recovery/)
+  assert.equal(fs.lstatSync(legacyLock).isFile(), true, 'legacy lock evidence must be preserved')
+})
+
 
 test('bounded queue prunes terminal history without dropping older pending tasks', t => {
   const f = fixture(t)

@@ -76,3 +76,73 @@ test('separate Agent processes compete for one durable lease and restart can rec
   assert.equal(reclaimed.claimed, true)
   assert.equal(restarted.hasActiveLease(), true)
 })
+
+test('simultaneous stale-lock recovery cannot remove a replacement process lock', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-stale-lock-recovery-'))
+  const lockDir = path.join(dir, '.whale-control.lock')
+  const staleToken = '00000000-0000-4000-8000-000000000001'
+  const staleOwnerPath = path.join(lockDir, '.owner-' + staleToken)
+  fs.mkdirSync(lockDir)
+  fs.writeFileSync(staleOwnerPath, JSON.stringify({ pid: 2_147_483_647, at: 0, token: staleToken }))
+
+  const memoryStore = { recordDiary: () => { throw new Error('No completion performed in this test') } }
+  const control = createControlLeaseStore({ stateDir: dir, memoryStore })
+  const script = path.join(dir, 'recover.mjs')
+  const moduleUrl = pathToFileURL(fileURLToPath(new URL('../lib/control-lease-store.js', import.meta.url))).href
+  fs.writeFileSync(script, [
+    "import fs from 'node:fs'",
+    "import { createControlLeaseStore } from " + JSON.stringify(moduleUrl),
+    "const [stateDir, agentId, mode, signalFile, releaseFile, staleOwnerPath] = process.argv.slice(2)",
+    'const originalWrite = fs.writeFileSync.bind(fs)',
+    'const originalUnlink = fs.unlinkSync.bind(fs)',
+    'const waitForFile = file => { const gate = new Int32Array(new SharedArrayBuffer(4)); const end = Date.now() + 10000; while (!fs.existsSync(file) && Date.now() < end) Atomics.wait(gate, 0, 0, 10); if (!fs.existsSync(file)) throw new Error("Timed out waiting for " + file) }',
+    "if (mode === 'pause-stale-removal') fs.unlinkSync = (file, ...args) => { if (String(file) === staleOwnerPath) { originalWrite(signalFile, 'paused'); waitForFile(releaseFile) } return originalUnlink(file, ...args) }",
+    "if (mode === 'pause-state-write') fs.writeFileSync = (file, ...args) => { if (String(file).includes('whale-control.json.') && String(file).endsWith('.tmp')) { originalWrite(signalFile, 'entered'); waitForFile(releaseFile) } return originalWrite(file, ...args) }",
+    'const control = createControlLeaseStore({ stateDir, memoryStore: { recordDiary() { throw new Error("No completion") } } })',
+    'try { const result = control.submitTask({ task: "Recovered by " + agentId }); process.stdout.write("RESULT " + agentId + " " + JSON.stringify(result) + "\\n") }',
+    'catch (error) { process.stdout.write("ERROR " + agentId + " " + error.message + "\\n") }',
+  ].join('\n'))
+
+  const children = []
+  t.after(() => {
+    for (const child of children) if (child.exitCode === null) child.kill('SIGKILL')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+  function start(agentId, mode, signalFile, releaseFile) {
+    const child = spawn(process.execPath, [script, dir, agentId, mode, signalFile, releaseFile, staleOwnerPath], { stdio: ['ignore', 'pipe', 'pipe'] })
+    children.push(child)
+    let output = ''
+    let stderr = ''
+    child.stdout.on('data', chunk => { output += String(chunk) })
+    child.stderr.on('data', chunk => { stderr += String(chunk) })
+    const done = new Promise((resolve, reject) => {
+      child.once('error', reject)
+      child.once('exit', code => code === 0 ? resolve({ output, stderr }) : reject(new Error(agentId + ' exited ' + code + ': ' + stderr)))
+    })
+    return { done }
+  }
+  async function waitForFile(file) {
+    const end = Date.now() + 10_000
+    while (!fs.existsSync(file) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 10))
+    assert.ok(fs.existsSync(file), 'Timed out waiting for ' + file)
+  }
+
+  const bPaused = path.join(dir, 'b-paused')
+  const releaseB = path.join(dir, 'release-b')
+  const aEntered = path.join(dir, 'a-entered')
+  const releaseA = path.join(dir, 'release-a')
+  const b = start('contender-b', 'pause-stale-removal', bPaused, releaseB)
+  await waitForFile(bPaused)
+  const a = start('contender-a', 'pause-state-write', aEntered, releaseA)
+  await waitForFile(aEntered)
+
+  fs.writeFileSync(releaseB, 'go')
+  const bResult = await b.done
+  assert.match(bResult.output, /^ERROR contender-b Whale control store is busy/m)
+
+  fs.writeFileSync(releaseA, 'go')
+  const aResult = await a.done
+  assert.match(aResult.output, /^RESULT contender-a /m)
+  assert.equal(control.listTasks().length, 1)
+  assert.equal(fs.existsSync(lockDir), false, 'the winning process must release its own lock directory')
+})
