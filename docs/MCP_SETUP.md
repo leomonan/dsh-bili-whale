@@ -65,6 +65,19 @@ Only RSS/Atom read capabilities are enabled. RSS mode does not fabricate comment
 Security note: the default RSS transport connects to the exact IP address returned by the validated DNS lookup while preserving the original hostname for the HTTP Host header and TLS SNI/certificate validation. It does not perform a second DNS lookup and it rejects redirects. All resolved addresses must be public. This closes the DNS-rebinding gap in the default transport; custom injected fetch implementations are intended for tests and must enforce equivalent protections if used in production.
 
 
+
+## Real model-provider smoke test (explicit opt-in)
+
+Before running the autonomous daemon, you can validate that the configured OpenAI-compatible provider accepts a tool schema and returns a parseable tool call:
+
+```sh
+WHALE_RUN_PAID_PROVIDER_SMOKE=1 npm run whale:provider-smoke
+```
+
+This makes **one small billable model API request**. The only offered tool is a local diagnostic stub and is never executed; the script does not contact Bilibili, RSS feeds, or any platform. It prints only the model identifier, diagnostic tool name, and token usage, and redacts the configured API key from errors. Without the explicit opt-in flag it exits before constructing the client or making a network request.
+
+A passing smoke test validates provider-level tool calling only; it does not replace the daemon E2E, real-account acceptance, OAuth, or hosted MCP interoperability gates.
+
 ## Autonomous fixed-brain daemon (experimental, opt-in)
 
 The daemon is separate from the MCP process. It owns the wake schedule and calls the configured model API itself; closing ChatGPT or another Agent client does not stop a daemon that is running on this machine.
