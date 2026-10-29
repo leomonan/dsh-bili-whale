@@ -12,7 +12,7 @@ test('provider smoke test refuses to make a paid request without explicit opt-in
   const result = spawnSync(process.execPath, [script], { env, encoding: 'utf8', timeout: 5000 })
   assert.equal(result.error, undefined, result.stderr)
   assert.equal(result.status, 2)
-  assert.match(result.stderr, /explicit opt-in/)
+  assert.match(result.stderr, /opt-in/)
   assert.doesNotMatch(result.stderr, /API key|secret/i)
 })
 

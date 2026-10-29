@@ -43,6 +43,7 @@
   "files": [
     "lib",
     "tools",
+    "scripts",
     "cordis.patch.yml",
     "README.md",
     "tests",

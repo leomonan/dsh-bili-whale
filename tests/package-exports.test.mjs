@@ -9,6 +9,7 @@ test('public package export map exposes the reusable runtime without breaking le
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
   assert.equal(pkg.exports['.'], './lib/index.js')
   assert.equal(pkg.exports['./client'], './lib/client.js')
+  assert.ok(pkg.files.includes('scripts'), 'CLI scripts must be included in the published package files')
   for (const name of [
     './platform-runtime',
     './platform-loader',
