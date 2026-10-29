@@ -307,5 +307,6 @@ The shared `coreHome` is now independent from `dataHome`: Core memory, wake sche
 - **MCP 2026-07-28 现代协议**：stdio 与 HTTP 共用同一工具注册表；支持无握手的 `server/discover`、`tools/list`、`tools/call`，保留 2025-era handshake/session 兼容路径。`server/discover` 只公布无状态现代版本，`clientInfo` 可省略但若提供必须合法。
 - **HTTP 请求头安全**：现代请求校验 `MCP-Protocol-Version`、`Mcp-Method` 和 `Mcp-Name` 与请求正文一致；严格校验 `Mcp-Name` 的 Base64 sentinel，拒绝缺失协议头、畸形编码和不匹配路由字段。显式但畸形的现代 stdio envelope 不得回落到旧握手错误。
 - **远程传输默认安全**：非 loopback 的明文 HTTP 绑定在没有显式 `WHALE_MCP_TRUST_PROXY_TLS=1` 时 fail-closed；推荐只绑定 loopback 并由 TLS 反向代理对外服务。该变量只是运维断言，不会自行启用 TLS。
-- **最新回归证据**：`feature/core-runtime@d36006578c96efa29113daa3c67cf656319c130d` 完整 CI 为 **278 passed / 0 failed**；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40825822089)。
+- **付费 Provider 验收入口**：新增 `npm run whale:provider-smoke`，必须显式设置 `WHALE_RUN_PAID_PROVIDER_SMOKE=1` 才会发送一次小型模型 API 请求；只验证工具调用协议，不执行任何工具、不访问 B 站或 RSS，也不触发平台写操作。脚本和命令已包含在 npm 包文件中。
+- **最新回归证据**：`feature/core-runtime@619ab81dd591e4bc78a8da26d0d2ce5c34400d22` 完整 CI 为 **280 passed / 0 failed**；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40826254480)。
 - **仍未宣称通过的发布门**：真实付费模型调用、真实 B 站账号 E2E、真实托管 Agent 的 OAuth/TLS 互操作、原 DSH 宿主功能保真和公网运行配置。以上必须在明确授权的实际环境中单独验收，不以 mock 或协议单测替代。
