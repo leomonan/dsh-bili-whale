@@ -11,9 +11,12 @@ import { createMcpHttpServer } from '../lib/mcp-http-server.js'
 async function main() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   const userHome = process.env.USERPROFILE || process.env.HOME || os.homedir() || '.'
-  const { dataHome, credentialsFile, platformRuntime } = await loadPlatformRuntime({ root, userHome })
-  const memoryStore = createMemoryStore({ stateDir: dataHome })
-  const controlLeaseStore = createControlLeaseStore({ stateDir: dataHome, memoryStore })
+  const { coreHome, dataHome, credentialsFile, platformRuntime } = await loadPlatformRuntime({ root, userHome })
+  const memoryStore = createMemoryStore({
+    stateDir: coreHome,
+    legacyPublicDiaryFile: path.join(dataHome, 'whale-diary.md'),
+  })
+  const controlLeaseStore = createControlLeaseStore({ stateDir: coreHome, memoryStore })
   const registry = createWhaleMcpTools({
     platformRuntime,
     stateDir: dataHome,
