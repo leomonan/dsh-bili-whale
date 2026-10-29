@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "whale-agent-mcp-gateway",
+  "main": "workers/whale-mcp-gateway.js",
+  "compatibility_date": "2026-10-29",
+  "workers_dev": false,
+  "vars": {
+    "CF_ACCESS_TEAM_DOMAIN": "your-team.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "replace-with-access-application-audience-tag",
+    "WHALE_MCP_ORIGIN_URL": "https://replace-with-private-origin.example.com/mcp",
+    "WHALE_ALLOWED_ORIGINS": "https://replace-with-approved-agent-origin.example.com"
+  }
+}

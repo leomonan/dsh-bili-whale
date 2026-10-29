@@ -2,9 +2,10 @@ name: Test
 
 on:
   push:
-    branches: [agent-main, "feature/**"]
+    branches: [agent-main]
   pull_request:
     branches: [agent-main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,3 +31,20 @@ jobs:
           fi
       - name: Run existing test suite
         run: npm test
+      - name: Bundle Cloudflare Worker without deploying
+        run: npx --yes wrangler@4 deploy --dry-run --outdir /tmp/whale-worker-build --config wrangler.example.jsonc
+      - name: Run Worker in local workerd without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 dev --local --ip 127.0.0.1 --port 8791 --config wrangler.example.jsonc > /tmp/whale-worker-workerd.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true' EXIT
+          status=000
+          for attempt in $(seq 1 45); do
+            status=$(curl --silent --max-time 2 --output /tmp/whale-worker-response.json --write-out '%{http_code}' -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' http://127.0.0.1:8791/mcp 2>/dev/null || true)
+            if [ "$status" != "000" ]; then break; fi
+            sleep 1
+          done
+          if [ "$status" != "401" ]; then cat /tmp/whale-worker-workerd.log; cat /tmp/whale-worker-response.json 2>/dev/null || true; echo "Expected unauthenticated Worker request to return 401, got $status"; exit 1; fi
+          grep -q 'Missing or invalid Cloudflare Access assertion' /tmp/whale-worker-response.json

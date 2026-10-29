@@ -1,28 +1,51 @@
 {
   "name": "dsh-bili-whale",
   "version": "0.4.6",
-  "description": "养一条有日子的鱼：让 DSH 里的 agent 自己刷 B 站、看懂视频、写两本日记，把值得的 @ 你。设置里有「养鱼」完整设置页（27 项）+ 依赖体检 + cookie 写入 + 共享配置（与工具链同一份 bili-whale.config.json）。",
+  "description": "Experimental Whale Agent Core: preserve the original DSH Bilibili plugin while adding cross-agent MCP/Skill access, read-only RSS support, shared memory, opt-in autonomous runtime, and leased Agent handoff.",
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
     "bilibili",
     "agent",
-    "diary"
+    "diary",
+    "mcp",
+    "agent-skill",
+    "rss",
+    "autonomous-agent",
+    "cross-agent",
+    "whale-agent"
   ],
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "mcp:stdio": "node mcp/server.mjs",
+    "whale:daemon": "node daemon/whale-daemon.mjs",
+    "mcp:http": "node mcp/http-server.mjs",
+    "whale:provider-smoke": "node scripts/provider-smoke.mjs",
+    "cloudflare:smoke": "node scripts/cloudflare-access-smoke.mjs"
   },
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./platform-runtime": "./lib/platform-runtime-contract.js",
+    "./platform-loader": "./lib/platform-loader.js",
+    "./rss-runtime": "./lib/rss-runtime.js",
+    "./mcp-server": "./lib/mcp-server.js",
+    "./mcp-http-server": "./lib/mcp-http-server.js",
+    "./memory": "./lib/memory-store.js",
+    "./control-lease": "./lib/control-lease-store.js",
+    "./model-client": "./lib/model-client.js",
+    "./agent-orchestrator": "./lib/agent-orchestrator.js",
+    "./autonomous-scheduler": "./lib/autonomous-scheduler.js"
   },
   "files": [
     "lib",
     "tools",
+    "scripts",
+    "workers",
     "cordis.patch.yml",
     "README.md",
     "tests",
@@ -34,7 +57,14 @@
     "LISTENER-FIX.md",
     "DM-HISTORY-FIX.md",
     "BUGFIX-2026-10-25.md",
-    "QR-LOGIN-2026-10-25.md"
+    "QR-LOGIN-2026-10-25.md",
+    "mcp",
+    "skills",
+    "mcp.json.example",
+    "mcp.rss.json.example",
+    "docs/MCP_SETUP.md",
+    "daemon",
+    "mcp.remote.json.example"
   ],
   "dsh": {
     "bundle": {

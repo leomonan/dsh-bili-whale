@@ -7,7 +7,7 @@ let now = Date.now()
 globalThis.Date = class extends RealDate { static now() { return now } }
 globalThis.setInterval = globalThis.setTimeout = () => ({})
 globalThis.clearInterval = globalThis.clearTimeout = () => {}
-const { startScheduler } = await import('../../lib/scheduler.js')
+const { startDshScheduler } = await import('../../lib/dsh-scheduler-host.js')
 process.env.TEST_DM_FILE = path.join(process.env.HOME, 'dm-input.json')
 const ts = Math.floor(now / 1000)
 const message = (id, text) => fs.writeFileSync(process.env.TEST_DM_FILE, JSON.stringify({ timestamp: ts, msg_key: id, sender_uid: 222, content: JSON.stringify({ content: text }) }))
@@ -16,7 +16,7 @@ fs.writeFileSync(process.env.BILI_WHALE_CONFIG, JSON.stringify({ owner: { mid: '
 const stateFile = path.join(process.env.HOME, '.bili-ai/dm-await-state.json')
 let fail = true
 const attempts = [], delivered = []
-const sched = startScheduler({ sessionController: { create: async () => {}, prompt: async p => {
+const sched = startDshScheduler({ sessionController: { create: async () => {}, prompt: async p => {
   attempts.push(p.requestId)
   if (fail) throw Error('host temporarily unavailable')
   delivered.push(p)

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "whale-agent": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/dsh-bili-whale/mcp/server.mjs"],
+      "env": {
+        "DSH_HOME": "/ABSOLUTE/PATH/TO/.dsh"
+      }
+    }
+  }
+}

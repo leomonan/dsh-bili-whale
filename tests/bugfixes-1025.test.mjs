@@ -89,7 +89,7 @@ test('PR 35 bugfix: malformed pending queue blocks replacing account',async t=>{
 
 test('DM retry stays in same session across rotation deadline and restart until receipt ack',async t=>{
  const dshHome=box(t);let now=Date.now();const requests=[],seen=new Set()
- const options={dshHome,cwd:dshHome,sessionId:'initial',config:()=>({sessionRotateDays:1}),persona:()=>'',now:()=>now,controller:{create:async()=>{},prompt:async r=>{requests.push(r);seen.add(r.sessionId+':'+r.requestId)}}}
+ const options={stateDir:dshHome,personaPath:path.join(dshHome,'persona.md'),diaryPaths:[path.join(dshHome,'whale-diary.md'),path.join(dshHome,'whale-diary-private.md')],sessionId:'initial',config:()=>({sessionRotateDays:1}),persona:()=>'',now:()=>now,transport:{ensureSession:async()=>{},deliver:async({request,sessionId,content})=>{const r={...request,sessionId,content};requests.push(r);seen.add(r.sessionId+':'+r.requestId)}}}
  let delivery=createSessionDelivery(options)
  const request={requestId:'dm-receipt',content:[{type:'text',text:'hello'}]}
  await delivery.send(request,undefined,{retainUntilAck:true})

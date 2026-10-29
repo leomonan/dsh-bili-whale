@@ -2,7 +2,7 @@
 
 > 方案版本：v1.0（设计稿）  
 > 编制日期：2026-10-28  
-> 状态：P0 已启动；个人 Fork 已建立，agent-main 分支已创建；本轮尚未修改业务代码或部署  
+> 状态：实现持续推进中；核心运行时、双平台 MCP/Skill、Daemon 与外部 Agent 租约已实现；Cloudflare Managed OAuth 已在隔离测试环境验收<br>
 > 上游：[Alterssss/dsh-bili-whale](https://github.com/Alterssss/dsh-bili-whale)  
 > 基线：`v0.4.6`，`main@8b0009f8ce2ebdc421afcb2e727b19ac18912ec6`（2026-10-25）
 

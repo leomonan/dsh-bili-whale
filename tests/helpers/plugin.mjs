@@ -17,6 +17,9 @@ cp.execFile=(exe,args,options,cb)=>{
   return {kill(){}}
 }
 syncBuiltinESMExports()
+// On macOS, resolveRuntime also probes fixed Homebrew paths outside PATH.
+// Model the CI Linux search path before importing the plugin so this test has no Node candidate.
+if(process.env.TEST_NO_NODE&&process.platform==='darwin')Object.defineProperty(process,'platform',{value:'linux'})
 const {default:plugin}=await import('../../lib/index.js')
 const routes=new Map()
 plugin.apply({get:()=>({requestRejection:()=>null}),webServer:{register(r){routes.set(r.path,r.handler);return ()=>{}}},effect:()=>{}})
@@ -29,7 +32,7 @@ async function request(url,body={},method='POST') {
 }
 if(process.env.TEST_NO_NODE) {
   const r=await request('deps',{},'GET')
-  assert.equal(r.data.scheduler.ok,false)
+  assert.equal(r.data.scheduler?.ok,false,JSON.stringify({status:r.status,keys:Object.keys(r.data),error:r.data.error}))
   assert.match(r.data.scheduler.reason,/node/)
 } else {
   const stateFile=path.join(process.env.DSH_HOME,'whale-night.json')

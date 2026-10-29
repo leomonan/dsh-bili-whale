@@ -447,3 +447,30 @@ dsh --profile <配置档名> web --port 3099
 ## 私信历史补读修复（本地待发布）
 
 私信监听改为按历史消息顺序交付，空收件箱不触发失败退避。安装方式、首次历史范围、分页上限和验证限制见 [DM-HISTORY-FIX.md](DM-HISTORY-FIX.md)。
+
+
+## Whale Agent MCP preview (experimental branch)
+
+The `feature/core-runtime` branch now has an MCP stdio endpoint and portable Agent Skill for two platform modes. Platform access remains read-only; local task-handoff and diary state can be updated:
+
+- **Bilibili**: existing account-backed read tools, video debriefing, and platform status.
+- **RSS/Atom**: public feed search, candidate retrieval, and article reading without Bilibili credentials.
+
+Setup guides: [MCP setup](docs/MCP_SETUP.md), [RSS config example](mcp.rss.json.example), [Skill](skills/bili-whale/SKILL.md), [default MCP config](mcp.json.example).
+
+The MCP server does not start the autonomous daemon. It exposes local task submission/leases for external Agent handoff, but does not expose public posting, commenting, favorites, or message sending. The separate fixed-brain daemon is opt-in and uses a provider API key. RSS feeds are explicitly configured, bounded, cached, checked against private-address targets, and fetched through a DNS-pinned transport that rejects redirects.
+
+
+## Experimental autonomous Whale daemon
+
+The current branch now includes an opt-in fixed-brain daemon (`npm run whale:daemon`) alongside the read-only MCP server. It uses a configured OpenAI-compatible model API, persistent wake schedule, append-only private/public diary journal, and the same Bilibili or RSS platform runtime.
+
+It is **not enabled by default**. To start it, set `WHALE_AUTONOMY_ENABLED=1`, `WHALE_MODEL_API_KEY` (or `OPENAI_API_KEY`), and `WHALE_MODEL`. The default model endpoint is `https://api.openai.com/v1`; API charges are separate from a ChatGPT subscription.
+
+At this milestone the autonomous model can read platform content and write local diary entries only. It cannot publish, comment, favorite, send messages, or perform other public platform writes. Setup and safety boundaries: [docs/MCP_SETUP.md](docs/MCP_SETUP.md).
+
+
+The fixed-brain preview now includes keyword-based recall over the full private diary journal and a process-level E2E test against a local mock OpenAI-compatible API. Semantic/vector retrieval and a real paid-provider run remain unverified.
+
+
+By default, shared Whale Core memory and task handoff state live in `~/.whale-agent` across platforms; existing Bilibili credentials/configuration remain in `~/.dsh`. Set `WHALE_CORE_HOME` to move only Core state, or `WHALE_HOME` when you intentionally want to move both Core and platform data.

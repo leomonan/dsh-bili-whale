@@ -1,0 +1,253 @@
+const JWKS_TTL_MS = 5 * 60 * 1000
+const MAX_REQUEST_BYTES = 1_000_000
+const ACCESS_ASSERTION_HEADER = 'cf-access-jwt-assertion'
+const JWKS_FETCH_CAUSE_CATEGORIES = new Map([
+  ['ECONNREFUSED', 'connection_refused'],
+  ['ECONNRESET', 'connection_reset'],
+  ['ETIMEDOUT', 'connection_timeout'],
+  ['ENOTFOUND', 'dns_failure'],
+  ['EAI_AGAIN', 'dns_failure'],
+  ['EHOSTUNREACH', 'network_unreachable'],
+  ['ENETUNREACH', 'network_unreachable'],
+  ['CERT_HAS_EXPIRED', 'tls_failure'],
+  ['ERR_TLS_CERT_ALTNAME_INVALID', 'tls_failure'],
+  ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'tls_failure'],
+])
+const JWKS_FETCH_MESSAGE_CATEGORIES = [
+  [/network connection lost/i, 'network_connection_lost'],
+  [/(?:dns|name not resolved|host not found)/i, 'dns_failure'],
+  [/(?:tls|ssl|certificate)/i, 'tls_failure'],
+  [/(?:timed out|timeout)/i, 'timeout'],
+  [/redirect/i, 'redirect_rejected'],
+  [/(?:connection reset|connection refused|connection closed)/i, 'connection_failure'],
+  [/fetch failed/i, 'fetch_failed'],
+]
+
+function jwksFetchFailureDetails(error) {
+  const errorKind = error?.name === 'AbortError' || error?.name === 'TimeoutError'
+    ? 'timeout'
+    : error?.name === 'TypeError' ? 'network_error' : 'other'
+  const causeCategory = JWKS_FETCH_CAUSE_CATEGORIES.get(error?.cause?.code)
+  const message = typeof error?.message === 'string' ? error.message : ''
+  const messageCategory = JWKS_FETCH_MESSAGE_CATEGORIES.find(([pattern]) => pattern.test(message))?.[1] ?? 'unclassified'
+  return {
+    error_kind: errorKind,
+    ...(causeCategory ? { cause_category: causeCategory } : {}),
+    message_category: messageCategory,
+  }
+}
+
+class AuthFailure extends Error {
+  constructor(status, message) {
+    super(message)
+    this.status = status
+  }
+}
+
+function json(body, status, headers = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...headers },
+  })
+}
+
+function base64UrlBytes(value) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+$/.test(value)) throw new AuthFailure(401, 'Invalid Access assertion encoding')
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4)
+  let binary
+  try { binary = atob(padded) } catch { throw new AuthFailure(401, 'Invalid Access assertion encoding') }
+  return Uint8Array.from(binary, character => character.charCodeAt(0))
+}
+
+function decodeJsonSegment(value) {
+  try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(base64UrlBytes(value))) } catch (error) {
+    if (error instanceof AuthFailure) throw error
+    throw new AuthFailure(401, 'Invalid Access assertion JSON')
+  }
+}
+
+function normalizeIssuer(value) {
+  if (typeof value !== 'string' || !value.trim()) throw new AuthFailure(503, 'CF_ACCESS_TEAM_DOMAIN is required')
+  let url
+  try { url = new URL(value.includes('://') ? value : 'https://' + value) } catch {
+    throw new AuthFailure(503, 'CF_ACCESS_TEAM_DOMAIN is invalid')
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || (url.pathname !== '/' && url.pathname !== '') || url.search || url.hash) {
+    throw new AuthFailure(503, 'CF_ACCESS_TEAM_DOMAIN must be an HTTPS origin without path, credentials, port, query, or fragment')
+  }
+  if (!url.hostname.toLowerCase().endsWith('.cloudflareaccess.com')) {
+    throw new AuthFailure(503, 'CF_ACCESS_TEAM_DOMAIN must use the Cloudflare Access team domain')
+  }
+  return url.origin
+}
+
+function validAudience(claim, expected) {
+  return typeof claim === 'string' ? claim === expected : Array.isArray(claim) && claim.includes(expected)
+}
+
+async function getJwks(issuer, fetchImpl, cache, now, forceRefresh = false) {
+  const url = issuer + '/cdn-cgi/access/certs'
+  const cached = cache.get(url)
+  if (!forceRefresh && cached && now() - cached.at < JWKS_TTL_MS) return cached.keys
+  let response
+  try { response = await fetchImpl(url, { method: 'GET', headers: { accept: 'application/json' }, redirect: 'manual' }) } catch (error) {
+    console.warn(JSON.stringify({ event: 'access_jwks_fetch_failed', ...jwksFetchFailureDetails(error) }))
+    throw new AuthFailure(503, 'Unable to reach Cloudflare Access signing keys')
+  }
+  if (response.status >= 300 && response.status < 400) throw new AuthFailure(503, 'Cloudflare Access signing keys returned a redirect')
+  if (!response.ok) throw new AuthFailure(503, 'Cloudflare Access signing keys returned HTTP ' + response.status)
+  let body
+  try { body = await response.json() } catch { throw new AuthFailure(503, 'Cloudflare Access signing keys returned invalid JSON') }
+  if (!body || !Array.isArray(body.keys) || body.keys.length === 0) throw new AuthFailure(503, 'Cloudflare Access signing key set is invalid')
+  cache.set(url, { at: now(), keys: body.keys })
+  return body.keys
+}
+
+async function verifyAssertion(token, env, fetchImpl, cache, now) {
+  const issuer = normalizeIssuer(env.CF_ACCESS_TEAM_DOMAIN)
+  const audience = typeof env.CF_ACCESS_AUD === 'string' ? env.CF_ACCESS_AUD.trim() : ''
+  if (!audience) throw new AuthFailure(503, 'CF_ACCESS_AUD is required')
+  if (typeof token !== 'string' || token.length < 32 || token.length > 16_384) throw new AuthFailure(401, 'Missing or invalid Cloudflare Access assertion')
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new AuthFailure(401, 'Invalid Cloudflare Access assertion')
+  const header = decodeJsonSegment(parts[0])
+  const claims = decodeJsonSegment(parts[1])
+  if (!header || header.alg !== 'RS256' || typeof header.kid !== 'string' || !header.kid
+      || header.crit !== undefined || header.b64 === false
+      || ['jku', 'jwk', 'x5u', 'x5c'].some(name => Object.prototype.hasOwnProperty.call(header, name))) {
+    throw new AuthFailure(401, 'Unsupported Cloudflare Access assertion header')
+  }
+  if (!claims || claims.iss !== issuer || !validAudience(claims.aud, audience)) throw new AuthFailure(401, 'Cloudflare Access assertion issuer or audience mismatch')
+  const nowSeconds = Math.floor(now() / 1000)
+  if (!Number.isFinite(claims.exp) || claims.exp <= nowSeconds
+      || (claims.nbf !== undefined && (!Number.isFinite(claims.nbf) || claims.nbf > nowSeconds))
+      || (claims.iat !== undefined && (!Number.isFinite(claims.iat) || claims.iat > nowSeconds + 60))) {
+    throw new AuthFailure(401, 'Cloudflare Access assertion is expired or not yet valid')
+  }
+  let keys = await getJwks(issuer, fetchImpl, cache, now)
+  const findKey = list => list.find(key => key.kid === header.kid && key.kty === 'RSA' && (!key.use || key.use === 'sig') && (!key.alg || key.alg === 'RS256'))
+  let jwk = findKey(keys)
+  if (!jwk) {
+    keys = await getJwks(issuer, fetchImpl, cache, now, true)
+    jwk = findKey(keys)
+  }
+  if (!jwk) throw new AuthFailure(401, 'Cloudflare Access assertion signing key was not found')
+  let publicKey
+  try { publicKey = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']) } catch {
+    throw new AuthFailure(503, 'Cloudflare Access signing key could not be imported')
+  }
+  let valid = false
+  try {
+    valid = await crypto.subtle.verify({ name: 'RSASSA-PKCS1-v1_5' }, publicKey, base64UrlBytes(parts[2]), new TextEncoder().encode(parts[0] + '.' + parts[1]))
+  } catch {}
+  if (!valid) throw new AuthFailure(401, 'Cloudflare Access assertion signature is invalid')
+  return claims
+}
+
+function originUrlFromEnv(env) {
+  if (typeof env.WHALE_MCP_ORIGIN_URL !== 'string' || !env.WHALE_MCP_ORIGIN_URL.trim()) throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_URL is required')
+  let url
+  try { url = new URL(env.WHALE_MCP_ORIGIN_URL) } catch { throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_URL is invalid') }
+  const hostname = url.hostname.toLowerCase()
+  const isLocalHostname = hostname === 'localhost' || hostname.endsWith('.localhost')
+    || hostname.endsWith('.local') || hostname.endsWith('.internal') || hostname.endsWith('.test')
+  const isIpLiteral = hostname.includes(':') || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)
+  if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search || !url.pathname.endsWith('/mcp')
+      || isLocalHostname || isIpLiteral) {
+    throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_URL must use a public HTTPS hostname, contain no credentials/query/fragment, and end in /mcp')
+  }
+  if (typeof env.WHALE_MCP_ORIGIN_TOKEN !== 'string' || env.WHALE_MCP_ORIGIN_TOKEN.length < 32) {
+    throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_TOKEN must be a configured secret of at least 32 characters')
+  }
+  if (typeof env.CF_ACCESS_ORIGIN_CLIENT_ID !== 'string' || !env.CF_ACCESS_ORIGIN_CLIENT_ID.trim()
+      || typeof env.CF_ACCESS_ORIGIN_CLIENT_SECRET !== 'string' || env.CF_ACCESS_ORIGIN_CLIENT_SECRET.length < 16) {
+    throw new AuthFailure(503, 'Cloudflare Access service-token credentials for the private origin are required')
+  }
+  return url
+}
+
+function originAllowlist(env) {
+  return String(env.WHALE_ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)
+}
+
+function corsHeaders(request, env) {
+  const origin = request.headers.get('origin')
+  if (!origin) return {}
+  if (!originAllowlist(env).includes(origin)) throw new AuthFailure(403, 'Origin not allowed')
+  return {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'POST, DELETE, OPTIONS',
+    'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version, mcp-method, mcp-name, mcp-session-id, last-event-id',
+    'access-control-expose-headers': 'mcp-session-id, mcp-protocol-version',
+    'access-control-max-age': '600',
+    vary: 'Origin',
+  }
+}
+
+async function readBoundedBody(request) {
+  const declared = Number(request.headers.get('content-length') || 0)
+  if (declared > MAX_REQUEST_BYTES) throw new AuthFailure(413, 'Request body exceeds size limit')
+  const bytes = await request.arrayBuffer()
+  if (bytes.byteLength > MAX_REQUEST_BYTES) throw new AuthFailure(413, 'Request body exceeds size limit')
+  return bytes
+}
+
+async function handleRequest(request, env, fetchImpl, now, cache) {
+  const url = new URL(request.url)
+  if (url.pathname !== '/mcp') return json({ error: 'Not found' }, 404)
+  if (!['POST', 'DELETE', 'OPTIONS'].includes(request.method)) return json({ error: 'Method not allowed' }, 405, { allow: 'POST, DELETE, OPTIONS' })
+  let cors
+  try { cors = corsHeaders(request, env) } catch (error) {
+    if (error instanceof AuthFailure) return json({ error: error.message }, error.status)
+    return json({ error: 'Request rejected' }, 400)
+  }
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
+
+  try {
+    await verifyAssertion(request.headers.get(ACCESS_ASSERTION_HEADER), env, fetchImpl, cache, now)
+    const originUrl = originUrlFromEnv(env)
+    const body = request.method === 'POST' ? await readBoundedBody(request) : undefined
+    const headers = new Headers()
+    const forwardedHeaders = new Set([
+      'accept',
+      'content-type',
+      'mcp-protocol-version',
+      'mcp-method',
+      'mcp-name',
+      'mcp-session-id',
+      'last-event-id',
+    ])
+    for (const [name, value] of request.headers) {
+      const lower = name.toLowerCase()
+      if (forwardedHeaders.has(lower)) headers.set(lower, value)
+    }
+    headers.set('authorization', 'Bearer ' + env.WHALE_MCP_ORIGIN_TOKEN)
+    headers.set('cf-access-client-id', env.CF_ACCESS_ORIGIN_CLIENT_ID)
+    headers.set('cf-access-client-secret', env.CF_ACCESS_ORIGIN_CLIENT_SECRET)
+    if (request.method === 'POST' && !headers.has('content-type')) throw new AuthFailure(415, 'Content-Type is required for MCP POST requests')
+    const upstreamRequest = new Request(originUrl, {
+      method: request.method,
+      headers,
+      ...(body !== undefined ? { body } : {}),
+      redirect: 'manual',
+    })
+    const upstreamResponse = await fetchImpl(upstreamRequest)
+    const responseHeaders = new Headers(upstreamResponse.headers)
+    for (const key of ['set-cookie', 'www-authenticate', 'location', 'server', 'cf-ray']) responseHeaders.delete(key)
+    for (const [name, value] of Object.entries(cors)) responseHeaders.set(name, value)
+    responseHeaders.set('cache-control', 'no-store')
+    return new Response(upstreamResponse.body, { status: upstreamResponse.status, statusText: upstreamResponse.statusText, headers: responseHeaders })
+  } catch (error) {
+    if (error instanceof AuthFailure) return json({ error: error.message }, error.status, cors)
+    return json({ error: 'MCP upstream request failed' }, 502, cors)
+  }
+}
+
+export function createCloudflareMcpGateway({ fetchImpl = fetch, now = Date.now } = {}) {
+  const cache = new Map()
+  return { fetch: (request, env) => handleRequest(request, env, fetchImpl, now, cache) }
+}
+
+const defaultGateway = createCloudflareMcpGateway()
+export default { fetch(request, env) { return defaultGateway.fetch(request, env) } }

@@ -1,5 +1,7 @@
 import test from 'node:test'
-import { wakePrompt } from '../lib/scheduler.js'
+import { createBilibiliWorkflows } from '../lib/bilibili-workflows.js'
+import { HOME, configPath } from '../tools/lib/paths.mjs'
+const wakePrompt = (st, personaText, maxVideos = 5, shareVia = 'dm') => createBilibiliWorkflows({ configFile: process.env.BILI_WHALE_CONFIG || configPath, homeDir: HOME }).wakePrompt(st, personaText, maxVideos, shareVia)
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'

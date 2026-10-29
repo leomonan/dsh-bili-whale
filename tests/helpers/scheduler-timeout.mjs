@@ -7,7 +7,7 @@ let now = new RealDate('2026-10-23T12:00:00').getTime()
 globalThis.Date = class extends RealDate { constructor(...a) { super(...(a.length ? a : [now])) } static now() { return now } }
 globalThis.setInterval = globalThis.setTimeout = () => ({})
 globalThis.clearInterval = globalThis.clearTimeout = () => {}
-const { startScheduler } = await import('../../lib/scheduler.js')
+const { startDshScheduler } = await import('../../lib/dsh-scheduler-host.js')
 const { makePlan } = await import('../../tools/lib/night-plan.mjs')
 const dsh = process.env.DSH_HOME, home = process.env.HOME
 for (const channel of ['tick', 'listenTick', 'dmTick']) {
@@ -19,7 +19,7 @@ for (const channel of ['tick', 'listenTick', 'dmTick']) {
   process.env.TEST_DM_FILE = path.join(home,'timeout-dm.json')
   fs.writeFileSync(process.env.TEST_DM_FILE, JSON.stringify({timestamp:Math.floor(now/1000),msg_key:'timeout-msg',sender_uid:222,content:JSON.stringify({content:'hello'})}))
   let calls = 0, release
-  const sched = startScheduler({sessionController:{create:async()=>{},prompt:()=>{calls++;return new Promise(r=>{release=r})}}}, {dshHome:dsh,cwd:home,biliMjs:fileURLToPath(new URL('../../tools/bili.mjs',import.meta.url))})
+  const sched = startDshScheduler({sessionController:{create:async()=>{},prompt:()=>{calls++;return new Promise(r=>{release=r})}}}, {dshHome:dsh,cwd:home,biliMjs:fileURLToPath(new URL('../../tools/bili.mjs',import.meta.url))})
   let pending
   try {
     if(channel==='listenTick') {
