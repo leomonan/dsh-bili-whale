@@ -111,6 +111,40 @@ Model API usage is billed by the selected model provider and is separate from a 
 The MCP server exposes `whale_submit_task`, `whale_list_tasks`, `whale_claim_task`, `whale_renew_task`, `whale_complete_task`, and `whale_release_task`. These operate only on the local task queue and shared private memory. Claiming a task returns a time-limited lease token; treat it as a secret and use it only for that task. Only one external Agent may hold a lease at a time. Renew a lease before expiry for longer work; an expired lease cannot be renewed. The autonomous daemon defers its scheduled wake while the lease is active, then resumes on a later tick. A task completion is saved into the private Whale diary for the fixed-brain model to use on a later wake.
 
 
+## Cloudflare Workers gateway with Access Managed OAuth
+
+A Worker-native edge gateway is provided at workers/whale-mcp-gateway.js. It verifies the signed Cf-Access-Jwt-Assertion header that Cloudflare Access injects after Managed OAuth authentication, then forwards the MCP request to one fixed HTTPS origin. The caller's opaque OAuth bearer token, cookies, and Access assertion are not forwarded upstream. Cloudflare Access handles OAuth discovery, browser authorization, token issuance, and user policy evaluation.
+
+### Runtime boundary
+
+This Worker is the OAuth-secured edge gateway, not a claim that the file-backed Whale Core has already been ported to Workers. The existing Node.js MCP origin, file-backed task/memory stores, and autonomous daemon still run outside the Worker. Keep the origin private behind Cloudflare Tunnel or an equivalent HTTPS endpoint. A later Workers-native Core migration must move persistent state to Durable Objects, D1, or another explicit storage binding and replace Node-only Bilibili dependencies before retiring the Node origin.
+
+### Required Cloudflare configuration
+
+1. Copy wrangler.example.jsonc to a local wrangler.jsonc and replace the placeholder Access team domain, Access application's exact Audience (AUD) tag, HTTPS origin URL, and approved browser origins.
+2. Create a Cloudflare Access MCP application for the Worker hostname, configure the intended user policy, and enable Managed OAuth. The Worker must receive requests through that protected hostname so Access supplies the signed assertion.
+3. Protect the separate origin hostname with a Cloudflare Access Service Auth policy and create a service token for that policy. The Worker sends the service token headers to the origin as a second authentication layer.
+4. Set Worker secrets. Do not commit them:
+
+   ~~~sh
+   npx wrangler secret put WHALE_MCP_ORIGIN_TOKEN
+   npx wrangler secret put CF_ACCESS_ORIGIN_CLIENT_ID
+   npx wrangler secret put CF_ACCESS_ORIGIN_CLIENT_SECRET
+   ~~~
+
+5. Configure the Node origin's WHALE_MCP_AUTH_TOKEN to the same high-entropy value as WHALE_MCP_ORIGIN_TOKEN. The origin must continue to enforce its bearer token even behind the Access Service Auth policy.
+6. Keep workers_dev disabled and do not run wrangler deploy against a production route as part of this PR. Use local unit tests and a separately authorized test hostname for real Access/Tunnel validation.
+
+Worker settings:
+- CF_ACCESS_TEAM_DOMAIN: HTTPS origin of the Cloudflare Access team, such as your-team.cloudflareaccess.com.
+- CF_ACCESS_AUD: exact Application Audience (AUD) tag for the Access app protecting the Worker hostname.
+- WHALE_MCP_ORIGIN_URL: fixed HTTPS origin URL ending in /mcp.
+- WHALE_MCP_ORIGIN_TOKEN: secret of at least 32 characters, also enforced by the Node origin.
+- CF_ACCESS_ORIGIN_CLIENT_ID and CF_ACCESS_ORIGIN_CLIENT_SECRET: Cloudflare Access Service Auth token for the separate origin application.
+- WHALE_ALLOWED_ORIGINS: comma-separated exact browser origins. Native clients without an Origin header are allowed.
+
+The gateway validates RS256 signature, issuer, audience, expiration and optional not-before/issued-at claims using Cloudflare Access public JWKS. JWKS are cached briefly and refreshed if the assertion's key ID is not found. Invalid assertions fail with 401; signing-key service failures fail closed with 503. The upstream hostname is fixed by configuration, request bodies are limited to 1 MB, and only MCP routing/content headers are forwarded.
+
 ## Remote HTTP MCP endpoint
 
 For Agent clients that accept remote Streamable HTTP MCP servers, the branch also provides `npm run mcp:http`.

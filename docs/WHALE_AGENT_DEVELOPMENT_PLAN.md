@@ -310,3 +310,13 @@ The shared `coreHome` is now independent from `dataHome`: Core memory, wake sche
 - **付费 Provider 验收入口**：新增 `npm run whale:provider-smoke`，必须显式设置 `WHALE_RUN_PAID_PROVIDER_SMOKE=1` 才会发送一次小型模型 API 请求；只验证工具调用协议，不执行任何工具、不访问 B 站或 RSS，也不触发平台写操作。脚本和命令已包含在 npm 包文件中。
 - **最新回归证据**：`feature/core-runtime@619ab81dd591e4bc78a8da26d0d2ce5c34400d22` 完整 CI 为 **280 passed / 0 failed**；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40826254480)。
 - **仍未宣称通过的发布门**：真实付费模型调用、真实 B 站账号 E2E、真实托管 Agent 的 OAuth/TLS 互操作、原 DSH 宿主功能保真和公网运行配置。以上必须在明确授权的实际环境中单独验收，不以 mock 或协议单测替代。
+
+
+## 18. Cloudflare Access Managed OAuth edge gateway（2026-10-29）
+
+- 新增 Worker-native 入口 workers/whale-mcp-gateway.js，不依赖 Node HTTP/文件系统模块；用 Web Crypto 校验 Cloudflare Access 注入的 Cf-Access-Jwt-Assertion。
+- JWT 校验覆盖 RS256 签名、精确 issuer、应用 AUD、exp，以及可选 nbf/iat；使用 Access JWKS，短期缓存，遇到未知 kid 时刷新一次；密钥服务不可用时 fail-closed。
+- 只转发到配置中的固定 HTTPS /mcp 上游；限制请求体 1 MB，CORS 使用精确 allowlist，只转发 MCP 相关头；不转发调用方 OAuth token、Cookie 或 Access assertion。
+- Worker 到 Node origin 使用单独的 Cloudflare Access Service Auth token 和原有 MCP bearer token 双层验证。Wrangler 示例禁用 workers.dev，未配置生产路由，也没有执行部署。
+- **架构边界明确**：本阶段只是 Cloudflare Workers 边缘 OAuth 网关；文件型 Core、任务/记忆持久化与自主 Daemon 仍在 Node origin。要完全迁移到 Workers，仍需单独设计 Durable Objects/D1 状态所有权、Cron 触发和 Bilibili 适配器移植，不能把网关称为完整 Worker-native Whale runtime。
+- 下一 Gate：本地生成 RSA/JWKS 的单元测试与 GitHub CI；之后在明确授权的独立测试域名上配置 Access Managed OAuth、origin Service Auth 和 Tunnel，完成真实 MCP 客户端互操作。生产部署不在本 PR 自动执行。
