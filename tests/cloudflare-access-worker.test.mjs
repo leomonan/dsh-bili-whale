@@ -95,6 +95,9 @@ test('valid Access assertion proxies to one fixed HTTPS origin using only the or
   }), fixture.env)
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('access-control-allow-origin'), 'https://agent.example.com')
+  const exposedHeaders = response.headers.get('access-control-expose-headers').toLowerCase().split(/,\s*/)
+  assert.ok(exposedHeaders.includes('mcp-session-id'))
+  assert.ok(exposedHeaders.includes('mcp-protocol-version'))
   assert.equal(fixture.upstreamCall.url, 'https://origin.example.com/mcp')
   assert.equal(fixture.upstreamCall.headers.get('authorization'), 'Bearer ' + ORIGIN_TOKEN)
   assert.equal(fixture.upstreamCall.headers.get('cf-access-client-id'), ENV.CF_ACCESS_ORIGIN_CLIENT_ID)
@@ -251,10 +254,21 @@ test('preflight uses exact CORS allowlist and never calls the origin', async () 
   const gateway = createCloudflareMcpGateway({ fetchImpl: async () => { calls += 1; return Response.json({}) } })
   const ok = await gateway.fetch(new Request('https://whale.example.com/mcp', {
     method: 'OPTIONS',
-    headers: { origin: 'https://agent.example.com' },
+    headers: {
+      origin: 'https://agent.example.com',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'authorization, content-type, mcp-protocol-version, mcp-method, mcp-name',
+    },
   }), ENV)
   assert.equal(ok.status, 204)
   assert.equal(ok.headers.get('access-control-allow-origin'), 'https://agent.example.com')
+  const allowedHeaders = ok.headers.get('access-control-allow-headers').toLowerCase().split(/,\s*/)
+  for (const header of ['authorization', 'content-type', 'mcp-protocol-version', 'mcp-method', 'mcp-name']) {
+    assert.ok(allowedHeaders.includes(header), 'preflight must allow ' + header)
+  }
+  const exposedHeaders = ok.headers.get('access-control-expose-headers').toLowerCase().split(/,\s*/)
+  assert.ok(exposedHeaders.includes('mcp-session-id'))
+  assert.ok(exposedHeaders.includes('mcp-protocol-version'))
   const denied = await gateway.fetch(new Request('https://whale.example.com/mcp', {
     method: 'OPTIONS',
     headers: { origin: 'https://evil.example' },

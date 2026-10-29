@@ -80,6 +80,31 @@ test('HTTP MCP rejects missing sessions, protocol mismatches, and unsupported or
   assert.equal(mismatch.status, 400)
 })
 
+test('HTTP MCP CORS supports modern MCP preflight headers and exposes session response headers', async t => {
+  const origin = 'https://agent.example.com'
+  const f = await fixture(t, { allowedOrigins: [origin] })
+  const preflight = await fetch(f.base, {
+    method: 'OPTIONS',
+    headers: {
+      origin,
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'authorization, content-type, mcp-protocol-version, mcp-method, mcp-name',
+    },
+  })
+  assert.equal(preflight.status, 204)
+  assert.equal(preflight.headers.get('access-control-allow-origin'), origin)
+  const allowedHeaders = preflight.headers.get('access-control-allow-headers').toLowerCase().split(/,\s*/)
+  for (const header of ['authorization', 'content-type', 'mcp-protocol-version', 'mcp-method', 'mcp-name']) {
+    assert.ok(allowedHeaders.includes(header), 'preflight must allow ' + header)
+  }
+
+  const init = await f.request(rpc(1, 'initialize', { protocolVersion: '2025-06-18' }), { origin })
+  assert.equal(init.status, 200)
+  const exposedHeaders = init.headers.get('access-control-expose-headers').toLowerCase().split(/,\s*/)
+  assert.ok(exposedHeaders.includes('mcp-session-id'))
+  assert.ok(exposedHeaders.includes('mcp-protocol-version'))
+})
+
 test('HTTP MCP enforces body size and content type limits', async t => {
   const f = await fixture(t, { maxBodyBytes: 1024 })
   const wrongType = await fetch(f.base, {

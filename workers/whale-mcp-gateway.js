@@ -179,6 +179,7 @@ function corsHeaders(request, env) {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'POST, DELETE, OPTIONS',
     'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version, mcp-method, mcp-name, mcp-session-id, last-event-id',
+    'access-control-expose-headers': 'mcp-session-id, mcp-protocol-version',
     'access-control-max-age': '600',
     vary: 'Origin',
   }
