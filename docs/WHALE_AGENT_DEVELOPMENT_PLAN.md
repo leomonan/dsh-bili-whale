@@ -319,5 +319,5 @@ The shared `coreHome` is now independent from `dataHome`: Core memory, wake sche
 - 只转发到配置中的固定 HTTPS /mcp 上游；限制请求体 1 MB，CORS 使用精确 allowlist，只转发 MCP 相关头；不转发调用方 OAuth token、Cookie 或 Access assertion。
 - Worker 到 Node origin 使用单独的 Cloudflare Access Service Auth token 和原有 MCP bearer token 双层验证。Wrangler 示例禁用 workers.dev，未配置生产路由，也没有执行部署。
 - **架构边界明确**：本阶段只是 Cloudflare Workers 边缘 OAuth 网关；文件型 Core、任务/记忆持久化与自主 Daemon 仍在 Node origin。要完全迁移到 Workers，仍需单独设计 Durable Objects/D1 状态所有权、Cron 触发和 Bilibili 适配器移植，不能把网关称为完整 Worker-native Whale runtime。
-- 本地 RSA/JWKS 验证已落地，覆盖有效签名、篡改、过期、issuer/AUD 不匹配、非 RS256、未知 kid 刷新、JWKS 不可用、CORS、请求体上限、固定 HTTPS 上游和源站 Service Auth secret 覆盖。提交 374f49f 的完整 CI 为 **287 passed / 0 failed**；随后继续增加 Wrangler 非生产配置与服务令牌覆盖测试。
+- 本地 RSA/JWKS 验证已落地，覆盖有效签名、篡改、过期、issuer/AUD 不匹配、非 RS256、未知 kid 刷新、JWKS 不可用、CORS、请求体上限、固定 HTTPS 上游和源站 Service Auth secret 覆盖。提交 f7e899f 的完整 CI 为 **288 passed / 0 failed**，覆盖 Wrangler 非生产配置与服务令牌不可被客户端覆盖；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40844515126)。
 - 下一 Gate：在明确授权的独立测试域名上配置 Access Managed OAuth、origin Service Auth 和 Tunnel，完成真实 MCP 客户端互操作。生产部署不在本 PR 自动执行。
