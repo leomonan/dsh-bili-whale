@@ -110,3 +110,15 @@ test('Cloudflare smoke rejects off-origin protected-resource metadata and issuer
     },
   }), /does not match/)
 })
+
+
+test('Cloudflare smoke rejects OAuth endpoints that do not match the issuer origin', async () => {
+  await assert.rejects(runCloudflareAccessSmoke({
+    baseUrl: 'https://mcp-test.example.com',
+    fetchImpl: async () => Response.json({
+      issuer: 'https://team.cloudflareaccess.com',
+      authorization_endpoint: 'https://attacker.example/authorize',
+      token_endpoint: 'https://team.cloudflareaccess.com/token',
+    }),
+  }), /must share the issuer origin/)
+})

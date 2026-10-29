@@ -34,6 +34,10 @@ export async function runCloudflareAccessSmoke({ baseUrl, fetchImpl = fetch } = 
   if (!metadata || !validHttpsEndpoint(metadata.issuer) || !validHttpsEndpoint(metadata.authorization_endpoint) || !validHttpsEndpoint(metadata.token_endpoint)) {
     throw new Error('OAuth metadata must contain HTTPS issuer, authorization_endpoint, and token_endpoint')
   }
+  const issuerOrigin = new URL(metadata.issuer).origin
+  if (new URL(metadata.authorization_endpoint).origin !== issuerOrigin || new URL(metadata.token_endpoint).origin !== issuerOrigin) {
+    throw new Error('Cloudflare OAuth authorization and token endpoints must share the issuer origin')
+  }
 
   let protectedResponse
   try {
