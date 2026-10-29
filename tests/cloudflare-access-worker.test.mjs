@@ -11,6 +11,8 @@ const ENV = {
   CF_ACCESS_AUD: AUDIENCE,
   WHALE_MCP_ORIGIN_URL: 'https://origin.example.com/mcp',
   WHALE_MCP_ORIGIN_TOKEN: ORIGIN_TOKEN,
+  CF_ACCESS_ORIGIN_CLIENT_ID: 'origin-service-token-id',
+  CF_ACCESS_ORIGIN_CLIENT_SECRET: 'origin-service-token-secret-0123456789',
   WHALE_ALLOWED_ORIGINS: 'https://agent.example.com',
 }
 const encoder = new TextEncoder()
@@ -93,6 +95,8 @@ test('valid Access assertion proxies to one fixed HTTPS origin using only the or
   assert.equal(response.headers.get('access-control-allow-origin'), 'https://agent.example.com')
   assert.equal(fixture.upstreamCall.url, 'https://origin.example.com/mcp')
   assert.equal(fixture.upstreamCall.headers.get('authorization'), 'Bearer ' + ORIGIN_TOKEN)
+  assert.equal(fixture.upstreamCall.headers.get('cf-access-client-id'), ENV.CF_ACCESS_ORIGIN_CLIENT_ID)
+  assert.equal(fixture.upstreamCall.headers.get('cf-access-client-secret'), ENV.CF_ACCESS_ORIGIN_CLIENT_SECRET)
   assert.equal(fixture.upstreamCall.headers.get('cf-access-jwt-assertion'), null)
   assert.equal(fixture.upstreamCall.headers.get('cookie'), null)
   assert.equal(fixture.upstreamCall.headers.get('origin'), null)
@@ -180,4 +184,19 @@ test('preflight uses exact CORS allowlist and never calls the origin', async () 
   }), ENV)
   assert.equal(denied.status, 403)
   assert.equal(calls, 0)
+})
+
+
+test('origin service-token credentials are mandatory before proxying', async () => {
+  const signer = await makeSigner()
+  const fixture = gatewayWithSigner(signer)
+  const token = await signer.sign()
+  for (const env of [
+    { ...fixture.env, CF_ACCESS_ORIGIN_CLIENT_ID: '' },
+    { ...fixture.env, CF_ACCESS_ORIGIN_CLIENT_SECRET: '' },
+  ]) {
+    const response = await fixture.gateway.fetch(request(token), env)
+    assert.equal(response.status, 503)
+  }
+  assert.equal(fixture.upstreamCall, null)
 })

@@ -111,6 +111,10 @@ function originUrlFromEnv(env) {
   if (typeof env.WHALE_MCP_ORIGIN_TOKEN !== 'string' || env.WHALE_MCP_ORIGIN_TOKEN.length < 32) {
     throw new AuthFailure(503, 'WHALE_MCP_ORIGIN_TOKEN must be a configured secret of at least 32 characters')
   }
+  if (typeof env.CF_ACCESS_ORIGIN_CLIENT_ID !== 'string' || !env.CF_ACCESS_ORIGIN_CLIENT_ID.trim()
+      || typeof env.CF_ACCESS_ORIGIN_CLIENT_SECRET !== 'string' || env.CF_ACCESS_ORIGIN_CLIENT_SECRET.length < 16) {
+    throw new AuthFailure(503, 'Cloudflare Access service-token credentials for the private origin are required')
+  }
   return url
 }
 
@@ -169,6 +173,8 @@ async function handleRequest(request, env, fetchImpl, now, cache) {
       if (forwardedHeaders.has(lower)) headers.set(lower, value)
     }
     headers.set('authorization', 'Bearer ' + env.WHALE_MCP_ORIGIN_TOKEN)
+    headers.set('cf-access-client-id', env.CF_ACCESS_ORIGIN_CLIENT_ID)
+    headers.set('cf-access-client-secret', env.CF_ACCESS_ORIGIN_CLIENT_SECRET)
     if (request.method === 'POST' && !headers.has('content-type')) throw new AuthFailure(415, 'Content-Type is required for MCP POST requests')
     const upstreamRequest = new Request(originUrl, {
       method: request.method,
