@@ -92,7 +92,6 @@ test('modern stdio MCP accepts discover and tools/list directly without initiali
     const server = fileURLToPath(new URL('../mcp/server.mjs', import.meta.url))
     const meta = {
       'io.modelcontextprotocol/protocolVersion': '2026-07-28',
-      'io.modelcontextprotocol/clientInfo': { name: 'modern-client', version: '1' },
       'io.modelcontextprotocol/clientCapabilities': {},
     }
     const input = [

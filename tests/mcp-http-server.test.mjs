@@ -175,7 +175,7 @@ test('modern HTTP MCP discovers and calls tools without initialize or session ID
   assert.equal(discovery.headers.get('mcp-session-id'), null)
   const d = (await discovery.json()).result
   assert.equal(d.resultType, 'complete')
-  assert.ok(d.supportedVersions.includes('2026-07-28'))
+  assert.deepEqual(d.supportedVersions, ['2026-07-28'], 'handshake-era versions must not be advertised for stateless requests')
   assert.equal(d.capabilities.tools.listChanged, false)
 
   const listed = await f.request(modernRpc(2, 'tools/list'), modernHeaders('tools/list'))
@@ -235,4 +235,28 @@ test('modern HTTP rejects unsupported protocol versions and methods without star
   const deleted = await f.request(undefined, { 'mcp-protocol-version': '2026-07-28' }, 'DELETE')
   assert.equal(deleted.status, 405)
   assert.equal(f.app.sessionCount, 0)
+})
+
+
+test('modern HTTP accepts omitted clientInfo but rejects malformed clientInfo', async t => {
+  const f = await fixture(t)
+  const noIdentity = {
+    'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+    'io.modelcontextprotocol/clientCapabilities': {},
+  }
+  const accepted = await f.request(
+    rpc(1, 'server/discover', { _meta: noIdentity }),
+    modernHeaders('server/discover'),
+  )
+  assert.equal(accepted.status, 200)
+  assert.deepEqual((await accepted.json()).result.supportedVersions, ['2026-07-28'])
+
+  for (const clientInfo of [null, 'bad', {}, { name: 'client' }, { name: 7, version: '1' }]) {
+    const response = await f.request(
+      rpc(2, 'server/discover', { _meta: { ...noIdentity, 'io.modelcontextprotocol/clientInfo': clientInfo } }),
+      modernHeaders('server/discover'),
+    )
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).error.code, -32602)
+  }
 })
