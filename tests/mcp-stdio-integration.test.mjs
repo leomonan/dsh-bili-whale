@@ -84,3 +84,38 @@ test('MCP stdio can select RSS without Bilibili credentials and exposes only rea
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+
+test('modern stdio MCP accepts discover and tools/list directly without initialize', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-mcp-stdio-modern-'))
+  try {
+    const server = fileURLToPath(new URL('../mcp/server.mjs', import.meta.url))
+    const meta = {
+      'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+      'io.modelcontextprotocol/clientInfo': { name: 'modern-client', version: '1' },
+      'io.modelcontextprotocol/clientCapabilities': {},
+    }
+    const input = [
+      { jsonrpc: '2.0', id: 1, method: 'server/discover', params: { _meta: meta } },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list', params: { _meta: meta } },
+    ].map(value => JSON.stringify(value)).join('\n') + '\n'
+    const result = spawnSync(process.execPath, [server], {
+      input, encoding: 'utf8', timeout: 20_000,
+      env: {
+        ...process.env, HOME: dir, USERPROFILE: dir,
+        WHALE_PLATFORM: 'rss',
+        WHALE_RSS_FEEDS: JSON.stringify([{ name: 'Test Feed', url: 'https://feeds.example.com/rss.xml' }]),
+      },
+    })
+    assert.equal(result.error, undefined, result.stderr)
+    assert.equal(result.status, 0, result.stderr)
+    const responses = result.stdout.trim().split(/\r?\n/).map(line => JSON.parse(line))
+    assert.equal(responses.length, 2)
+    assert.equal(responses[0].result.resultType, 'complete')
+    assert.ok(responses[0].result.supportedVersions.includes('2026-07-28'))
+    assert.equal(responses[1].result.tools[0].name, 'whale_status')
+    assert.equal(responses[1].result.resultType, 'complete')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})

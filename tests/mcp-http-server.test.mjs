@@ -154,3 +154,85 @@ test('HTTP MCP enforces its configured session capacity', async t => {
   const third = await init()
   assert.equal(third.status, 200)
 })
+
+
+const modernMeta = {
+  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+  'io.modelcontextprotocol/clientInfo': { name: 'modern-test', version: '1' },
+  'io.modelcontextprotocol/clientCapabilities': {},
+}
+const modernRpc = (id, method, params = {}) => rpc(id, method, { ...params, _meta: modernMeta })
+const modernHeaders = (method, name) => ({
+  'mcp-protocol-version': '2026-07-28',
+  'mcp-method': method,
+  ...(name ? { 'mcp-name': name } : {}),
+})
+
+test('modern HTTP MCP discovers and calls tools without initialize or session IDs', async t => {
+  const f = await fixture(t)
+  const discovery = await f.request(modernRpc(1, 'server/discover'), modernHeaders('server/discover'))
+  assert.equal(discovery.status, 200)
+  assert.equal(discovery.headers.get('mcp-session-id'), null)
+  const d = (await discovery.json()).result
+  assert.equal(d.resultType, 'complete')
+  assert.ok(d.supportedVersions.includes('2026-07-28'))
+  assert.equal(d.capabilities.tools.listChanged, false)
+
+  const listed = await f.request(modernRpc(2, 'tools/list'), modernHeaders('tools/list'))
+  assert.equal(listed.status, 200)
+  const tools = (await listed.json()).result
+  assert.equal(tools.resultType, 'complete')
+  assert.equal(tools.cacheScope, 'private')
+  assert.equal(tools.tools[0].name, 'whale_status')
+  const result = await f.request(
+    modernRpc(3, 'tools/call', { name: 'whale_status', arguments: { test: true } }),
+    modernHeaders('tools/call', 'whale_status'),
+  )
+  assert.equal(result.status, 200)
+  const call = (await result.json()).result
+  assert.equal(call.resultType, 'complete')
+  assert.deepEqual(JSON.parse(call.content[0].text), { name: 'whale_status', args: { test: true } })
+  assert.equal(f.app.sessionCount, 0)
+})
+
+test('modern HTTP validates mirrored routing headers before dispatching any tool', async t => {
+  let calls = 0
+  const guarded = {
+    listTools: registry.listTools,
+    callTool: async (...args) => { calls += 1; return registry.callTool(...args) },
+  }
+  const f = await fixture(t, { registry: guarded })
+  for (const headers of [
+    { 'mcp-method': 'tools/list' },
+    { 'mcp-name': 'another_tool' },
+    { 'mcp-protocol-version': '2026-01-01' },
+  ]) {
+    const response = await f.request(
+      modernRpc(1, 'tools/call', { name: 'whale_status' }),
+      { ...modernHeaders('tools/call', 'whale_status'), ...headers },
+    )
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).error.code, -32020)
+  }
+  const missingName = await f.request(modernRpc(2, 'tools/call', { name: 'whale_status' }), modernHeaders('tools/call'))
+  assert.equal(missingName.status, 400)
+  assert.equal((await missingName.json()).error.code, -32020)
+  assert.equal(calls, 0)
+})
+
+test('modern HTTP rejects unsupported protocol versions and methods without starting a session', async t => {
+  const f = await fixture(t)
+  const oldMeta = { ...modernMeta, 'io.modelcontextprotocol/protocolVersion': '2026-01-01' }
+  const unsupported = await f.request(
+    rpc(1, 'tools/list', { _meta: oldMeta }),
+    { 'mcp-method': 'tools/list', 'mcp-protocol-version': '2026-01-01' },
+  )
+  assert.equal(unsupported.status, 400)
+  assert.equal((await unsupported.json()).error.code, -32022)
+  const unknown = await f.request(modernRpc(2, 'unsupported/method'), modernHeaders('unsupported/method'))
+  assert.equal(unknown.status, 404)
+  assert.equal((await unknown.json()).error.code, -32601)
+  const deleted = await f.request(undefined, { 'mcp-protocol-version': '2026-07-28' }, 'DELETE')
+  assert.equal(deleted.status, 405)
+  assert.equal(f.app.sessionCount, 0)
+})
