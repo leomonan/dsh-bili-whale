@@ -2,7 +2,7 @@
 import { createOpenAICompatibleModelClient } from '../lib/model-client.js'
 
 if (process.env.WHALE_RUN_PAID_PROVIDER_SMOKE !== '1') {
-  process.stderr.write('[whale-agent] Provider smoke test is opt-in. Set WHALE_RUN_PAID_PROVIDER_SMOKE=1 to authorize one small model API request.\\n')
+  process.stderr.write('[whale-agent] Provider smoke test is opt-in. Set WHALE_RUN_PAID_PROVIDER_SMOKE=1 to authorize one small model API request.\n')
   process.exitCode = 2
 } else {
   const apiKey = process.env.WHALE_MODEL_API_KEY || process.env.OPENAI_API_KEY || ''
@@ -44,12 +44,12 @@ if (process.env.WHALE_RUN_PAID_PROVIDER_SMOKE !== '1') {
         completion_tokens: result.usage.completion_tokens ?? null,
         total_tokens: result.usage.total_tokens ?? null,
       } : null,
-    }) + '\\n')
+    }) + '\n')
   } catch (error) {
     const message = String(error?.message ?? error)
       .replaceAll(apiKey, apiKey ? '[redacted]' : '')
       .slice(0, 500)
-    process.stderr.write('[whale-agent] Provider smoke failed: ' + message + '\\n')
+    process.stderr.write('[whale-agent] Provider smoke failed: ' + message + '\n')
     process.exitCode = 1
   }
 }
