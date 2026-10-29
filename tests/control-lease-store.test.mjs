@@ -203,3 +203,46 @@ test('expired or invalid task leases cannot be renewed', t => {
   f.advance(61_000)
   assert.throws(() => f.control.renewTask({ taskId: task.id, leaseToken: claim.leaseToken, leaseSeconds: 600 }), /no active control lease/)
 })
+
+
+test('handoff completion preserves the entire allowed result and rejects a changed tail after interrupted persistence', t => {
+  const f = fixture(t)
+  let interruptOnce = true
+  const control = createControlLeaseStore({
+    stateDir: f.dir,
+    memoryStore: {
+      recordDiary(options) {
+        const recorded = f.memoryStore.recordDiary(options)
+        if (interruptOnce) {
+          interruptOnce = false
+          throw new Error('Simulated interruption after memory append')
+        }
+        return recorded
+      },
+    },
+    now: () => Date.parse('2026-10-29T00:00:00Z'),
+  })
+  const task = control.submitTask({ task: 'Audit complete result integrity' }).task
+  const claim = control.claimTask({ agentId: 'codex', taskId: task.id })
+  const prefix = 'A'.repeat(3_390)
+  const originalResult = prefix + 'X'.repeat(110)
+  const changedResult = prefix + 'Y'.repeat(110)
+
+  assert.throws(
+    () => control.completeTask({ taskId: task.id, leaseToken: claim.leaseToken, result: originalResult }),
+    /Simulated interruption/,
+  )
+  assert.equal(control.listTasks()[0].status, 'leased')
+  assert.equal(f.memoryStore.readPrivateDiary().entries, 1)
+  assert.match(f.memoryStore.readPrivateDiary().text, /X{110}/)
+
+  assert.throws(
+    () => control.completeTask({ taskId: task.id, leaseToken: claim.leaseToken, result: changedResult }),
+    /conflicting or non-private handoff entry/,
+  )
+  assert.equal(control.listTasks()[0].status, 'leased')
+  const completed = control.completeTask({ taskId: task.id, leaseToken: claim.leaseToken, result: originalResult })
+  assert.equal(completed.completed, true)
+  assert.equal(completed.task.result, originalResult)
+  assert.equal(f.memoryStore.readPrivateDiary().entries, 1)
+})
