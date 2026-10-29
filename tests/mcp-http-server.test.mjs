@@ -274,3 +274,33 @@ test('modern HTTP rejects missing protocol-version header when modern routing he
   assert.match(body.error.message, /Mcp-Protocol-Version/)
   assert.equal(f.app.sessionCount, 0)
 })
+
+
+test('modern HTTP decodes valid Base64 Mcp-Name and rejects malformed sentinel encodings', async t => {
+  const unicodeRegistry = {
+    listTools: async () => [{ name: 'é', inputSchema: { type: 'object', properties: {} } }],
+    callTool: async (name, args) => ({ content: [{ type: 'text', text: JSON.stringify({ name, args }) }] }),
+  }
+  const f = await fixture(t, { registry: unicodeRegistry })
+  const meta = {
+    'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+    'io.modelcontextprotocol/clientCapabilities': {},
+  }
+  const requestBody = rpc(1, 'tools/call', { name: 'é', arguments: {} })
+  requestBody.params._meta = meta
+  const valid = await f.request(requestBody, {
+    ...modernHeaders('tools/call', 'é'),
+    'mcp-name': '=?base64?w6k=?=',
+  })
+  assert.equal(valid.status, 200)
+  assert.equal(JSON.parse((await valid.json()).result.content[0].text).name, 'é')
+
+  for (const malformed of ['=?base64?A?=', '=?base64?/w==?=', '=?base64?w6k===?=']) {
+    const rejected = await f.request(requestBody, {
+      ...modernHeaders('tools/call', 'é'),
+      'mcp-name': malformed,
+    })
+    assert.equal(rejected.status, 400)
+    assert.equal((await rejected.json()).error.code, -32020)
+  }
+})
