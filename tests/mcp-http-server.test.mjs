@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import net from 'node:net'
 import { createMcpHttpServer } from '../lib/mcp-http-server.js'
 
 const TOKEN = 'test-token-with-at-least-thirty-two-characters'
@@ -38,6 +39,24 @@ test('HTTP MCP requires a strong bearer token and rejects unauthorized calls', a
   })
   assert.equal(response.status, 401)
   assert.equal(response.headers.get('www-authenticate'), 'Bearer')
+})
+
+test('malformed request target returns 400 and leaves the server available', async t => {
+  const f = await fixture(t)
+  const { port } = new URL(f.base)
+  const raw = await new Promise((resolve, reject) => {
+    const socket = net.connect(Number(port), '127.0.0.1', () => {
+      socket.write('GET //[ HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
+    })
+    let output = ''
+    socket.setEncoding('utf8')
+    socket.on('data', chunk => { output += chunk })
+    socket.once('end', () => resolve(output))
+    socket.once('error', reject)
+  })
+  assert.match(raw, /^HTTP\/1\.1 400 /)
+  const subsequent = await fetch(f.base, { method: 'POST' })
+  assert.equal(subsequent.status, 401)
 })
 
 test('HTTP MCP initializes a session, handles notifications, lists tools, and closes the session', async t => {
