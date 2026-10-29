@@ -2,7 +2,7 @@
 
 > 方案版本：v1.0（设计稿）  
 > 编制日期：2026-10-28  
-> 状态：持续开发中；P0/P1 已完成，P2 双平台 MCP/Skill 已实现，P3 固定大脑 Daemon 与 C 模式外部 Agent 控制租约首版已实现；当前持续进行端到端回归与可靠性收敛  
+> 状态：实现持续推进中；核心运行时、双平台 MCP/Skill、Daemon 与外部 Agent 租约已实现；Cloudflare Managed OAuth 已在隔离测试环境验收<br>
 > 上游：[Alterssss/dsh-bili-whale](https://github.com/Alterssss/dsh-bili-whale)  
 > 基线：`v0.4.6`，`main@8b0009f8ce2ebdc421afcb2e727b19ac18912ec6`（2026-10-25）
 
@@ -280,46 +280,3 @@ dsh-bili-whale/                    # Fork 起始仓库，后续可改显示名
 - 跨 Agent：[MCP TypeScript SDK 服务端说明](https://ts.sdk.modelcontextprotocol.io/server)、[Agent Skills Specification](https://github.com/agentskills/agentskills/blob/main/docs/specification.mdx)。
 - GitHub：[Fork](https://docs.github.com/en/pull-requests/how-tos/work-with-forks/fork-a-repo)、[Sync](https://docs.github.com/en/pull-requests/how-tos/work-with-forks/syncing-a-fork)。
 - 平台能力示例：[YouTube Data API](https://developers.google.com/youtube/data/reference/rest/v3/commentThreads/list) 与 [CommentThread 写入授权](https://developers.google.com/youtube/data/reference/rest/v3/commentThreads/insert)。
-
-## 15. 当前实现进度（2026-10-28）
-
-- **P0 已完成**：个人 Fork、`agent-main` 基线、开发方案、基线记录和 GitHub Actions；原始完整测试集曾独立通过 154/154。
-- **P1 Gate 0–10 已落地**：会话投递合同、B 站收件箱/私信/直播适配器、平台运行时组合、宿主能力隔离、平台工作流抽取、显式可选能力合同。主要 Gate 均有远程 CI 记录。
-- **P2 MCP/Skill 已落地**：stdio 与带 Bearer 认证的 HTTP MCP 入口、能力驱动工具发现、Bilibili 与 RSS/Atom 内容工具、公开日记、跨 Agent Skill、配置样例和安装文档均已实现。RSS 无需 B 站凭据；RSS 解析、缓存、失败冷却和网络边界有专项测试。
-- **P3 固定大脑与自主运行第一版已落地**：OpenAI-compatible 固定模型客户端、有限工具调用循环、持久生物钟计划、单实例锁、可恢复 pending wake、append-only 结构化日记与运行时 opt-in Daemon 已实现。已用本地 mock 模型 API 完成 Daemon→工具调用→日记持久化→计划完成的进程级 E2E；真实付费模型 API E2E 仍待授权，自动运行默认关闭。
-- **长期记忆首版已补齐关键词检索**：按私有/公开可见性扫描完整日记日志，返回有限摘要；自主模型可调用私有记忆检索，公用 MCP 不会暴露私有记忆工具。语义/向量检索仍未实现。
-- **C 模式外部 Agent 接管首版已落地**：本地任务队列、单一活动控制租约、过期回收、幂等完成/释放、结果写入同一私有记忆；自主调度器在外部 Agent 持有租约时推迟唤醒。任务队列与日记已补充冲突重试、历史窗口和队列回收测试。
-- **仍待完成**：真实模型 API E2E、远程 HTTP MCP 的 TLS/OAuth 部署与具体宿主互操作验收、跨平台聚合（同一轮跨 B 站 + RSS）、YouTube 官方 API、公开平台写操作审批/Outbox、语义/向量记忆检索与迁移完善。
-- **安全边界**：MCP 可写入本地任务队列与本地日记，但不公开评论、私信发送、收藏、发布等平台写操作。自主 Daemon 必须显式设置 `WHALE_AUTONOMY_ENABLED=1`，默认关闭。
-
-
-## 16. Shared identity across platform adapters
-
-The shared `coreHome` is now independent from `dataHome`: Core memory, wake schedule and control lease/task queue default to `~/.whale-agent` regardless of the selected platform. Bilibili's existing credentials and configuration remain under its platform data home (`~/.dsh` by default). `WHALE_CORE_HOME` overrides only Core state; `WHALE_HOME` deliberately overrides both. This prevents switching between Bilibili and RSS from silently creating separate Whale identities or schedules.
-
-
-## 17. 可靠性与 MCP 现代协议收敛（2026-10-29）
-
-- **跨入口 Core 状态统一**：HTTP MCP、stdio MCP 与自主 Daemon 的任务租约和记忆都使用共享 `coreHome`；B 站旧日记仍通过只读兼容路径读取，不复制任务或私有记忆状态。
-- **交接结果不丢失**：完整保留 3500 字符以内的任务结果；模拟“记忆已追加、任务状态未提交”的中断，冲突结果必须 fail-closed，相同结果可安全完成。
-- **自主任务重启恢复**：以持久私有日记作为运行完成凭证。重启后先核对相同 run ID 的记录；匹配时不再请求模型，平台或可见性冲突时拒绝重放。
-- **租约并发证据**：两个独立进程竞争时仅一个能获得活动租约；新的 Store 实例可根据持久过期时间回收租约。
-- **MCP 2026-07-28 现代协议**：stdio 与 HTTP 共用同一工具注册表；支持无握手的 `server/discover`、`tools/list`、`tools/call`，保留 2025-era handshake/session 兼容路径。`server/discover` 只公布无状态现代版本，`clientInfo` 可省略但若提供必须合法。
-- **HTTP 请求头安全**：现代请求校验 `MCP-Protocol-Version`、`Mcp-Method` 和 `Mcp-Name` 与请求正文一致；严格校验 `Mcp-Name` 的 Base64 sentinel，拒绝缺失协议头、畸形编码和不匹配路由字段。显式但畸形的现代 stdio envelope 不得回落到旧握手错误。
-- **远程传输默认安全**：非 loopback 的明文 HTTP 绑定在没有显式 `WHALE_MCP_TRUST_PROXY_TLS=1` 时 fail-closed；推荐只绑定 loopback 并由 TLS 反向代理对外服务。该变量只是运维断言，不会自行启用 TLS。
-- **付费 Provider 验收入口**：新增 `npm run whale:provider-smoke`，必须显式设置 `WHALE_RUN_PAID_PROVIDER_SMOKE=1` 才会发送一次小型模型 API 请求；只验证工具调用协议，不执行任何工具、不访问 B 站或 RSS，也不触发平台写操作。脚本和命令已包含在 npm 包文件中。
-- **最新回归证据**：`feature/core-runtime@619ab81dd591e4bc78a8da26d0d2ce5c34400d22` 完整 CI 为 **280 passed / 0 failed**；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40826254480)。
-- **仍未宣称通过的发布门**：真实付费模型调用、真实 B 站账号 E2E、真实托管 Agent 的 OAuth/TLS 互操作、原 DSH 宿主功能保真和公网运行配置。以上必须在明确授权的实际环境中单独验收，不以 mock 或协议单测替代。
-
-
-## 18. Cloudflare Access Managed OAuth edge gateway（2026-10-29）
-
-- 新增 Worker-native 入口 workers/whale-mcp-gateway.js，不依赖 Node HTTP/文件系统模块；用 Web Crypto 校验 Cloudflare Access 注入的 Cf-Access-Jwt-Assertion。
-- JWT 校验覆盖 RS256 签名、精确 issuer、应用 AUD、exp，以及可选 nbf/iat；使用 Access JWKS，短期缓存，遇到未知 kid 时刷新一次；密钥服务不可用时 fail-closed。
-- 只转发到配置中的固定 HTTPS /mcp 上游；限制请求体 1 MB，CORS 使用精确 allowlist，只转发 MCP 相关头；不转发调用方 OAuth token、Cookie 或 Access assertion。
-- Worker 到 Node origin 使用单独的 Cloudflare Access Service Auth token 和原有 MCP bearer token 双层验证。Wrangler 示例禁用 workers.dev，未配置生产路由，也没有执行部署。
-- **架构边界明确**：本阶段只是 Cloudflare Workers 边缘 OAuth 网关；文件型 Core、任务/记忆持久化与自主 Daemon 仍在 Node origin。要完全迁移到 Workers，仍需单独设计 Durable Objects/D1 状态所有权、Cron 触发和 Bilibili 适配器移植，不能把网关称为完整 Worker-native Whale runtime。
-- 本地 RSA/JWKS 验证已落地，覆盖有效签名、篡改、过期、issuer/AUD 不匹配、非 RS256、未知 kid 刷新、JWKS 不可用、CORS、请求体上限、固定 HTTPS 上游和源站 Service Auth secret 覆盖。提交 ab5f3d8 的完整 CI 为 **293 passed / 0 failed**；CI 同时通过 Wrangler dry-run bundling 和本地 workerd 启动测试，验证无 Access assertion 时返回 401。JWT 校验还拒绝 critical/b64 扩展和 token 内指定的远程密钥头；源站拒绝 IP literal 和本地域名；[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40846157981)。
-- OAuth 只读 Smoke Test 现已核验完整发现链：授权服务器元数据的 issuer/authorization/token endpoint 必须为 HTTPS 且 endpoint 与 issuer 同源；MCP 的 `WWW-Authenticate` 必须提供同源 `resource_metadata` URL；受保护资源元数据必须声明当前 resource 与 HTTPS `authorization_servers`，并与 OAuth issuer 对应。拒绝跨域 metadata URL，所有探测均不携带凭证、不申请 Token、不调用工具。
-- 最新提交 `960ee29` 的完整 CI 为 **295 passed / 0 failed**；Wrangler dry-run 和本地 workerd 未认证拒绝测试均通过：[GitHub Actions](https://github.com/leomonan/dsh-bili-whale/actions/runs/40846970378)。
-- 下一 Gate：在明确授权的独立测试域名上配置 Access Managed OAuth、origin Service Auth 和 Tunnel，完成真实 MCP 客户端互操作。生产部署不在本 PR 自动执行。
