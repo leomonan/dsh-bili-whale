@@ -260,3 +260,17 @@ test('modern HTTP accepts omitted clientInfo but rejects malformed clientInfo', 
     assert.equal((await response.json()).error.code, -32602)
   }
 })
+
+
+test('modern HTTP rejects missing protocol-version header when modern routing headers are present', async t => {
+  const f = await fixture(t)
+  const response = await f.request(
+    rpc(1, 'tools/list', { _meta: { 'io.modelcontextprotocol/clientCapabilities': {} } }),
+    { 'mcp-method': 'tools/list' },
+  )
+  assert.equal(response.status, 400)
+  const body = await response.json()
+  assert.equal(body.error.code, -32020)
+  assert.match(body.error.message, /Mcp-Protocol-Version/)
+  assert.equal(f.app.sessionCount, 0)
+})
