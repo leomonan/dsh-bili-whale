@@ -13,13 +13,28 @@ const JWKS_FETCH_CAUSE_CATEGORIES = new Map([
   ['ERR_TLS_CERT_ALTNAME_INVALID', 'tls_failure'],
   ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'tls_failure'],
 ])
+const JWKS_FETCH_MESSAGE_CATEGORIES = [
+  [/network connection lost/i, 'network_connection_lost'],
+  [/(?:dns|name not resolved|host not found)/i, 'dns_failure'],
+  [/(?:tls|ssl|certificate)/i, 'tls_failure'],
+  [/(?:timed out|timeout)/i, 'timeout'],
+  [/redirect/i, 'redirect_rejected'],
+  [/(?:connection reset|connection refused|connection closed)/i, 'connection_failure'],
+  [/fetch failed/i, 'fetch_failed'],
+]
 
 function jwksFetchFailureDetails(error) {
   const errorKind = error?.name === 'AbortError' || error?.name === 'TimeoutError'
     ? 'timeout'
     : error?.name === 'TypeError' ? 'network_error' : 'other'
   const causeCategory = JWKS_FETCH_CAUSE_CATEGORIES.get(error?.cause?.code)
-  return { error_kind: errorKind, ...(causeCategory ? { cause_category: causeCategory } : {}) }
+  const message = typeof error?.message === 'string' ? error.message : ''
+  const messageCategory = JWKS_FETCH_MESSAGE_CATEGORIES.find(([pattern]) => pattern.test(message))?.[1] ?? 'unclassified'
+  return {
+    error_kind: errorKind,
+    ...(causeCategory ? { cause_category: causeCategory } : {}),
+    message_category: messageCategory,
+  }
 }
 
 class AuthFailure extends Error {
@@ -76,10 +91,11 @@ async function getJwks(issuer, fetchImpl, cache, now, forceRefresh = false) {
   const cached = cache.get(url)
   if (!forceRefresh && cached && now() - cached.at < JWKS_TTL_MS) return cached.keys
   let response
-  try { response = await fetchImpl(url, { method: 'GET', headers: { accept: 'application/json' }, redirect: 'error' }) } catch (error) {
+  try { response = await fetchImpl(url, { method: 'GET', headers: { accept: 'application/json' }, redirect: 'manual' }) } catch (error) {
     console.warn(JSON.stringify({ event: 'access_jwks_fetch_failed', ...jwksFetchFailureDetails(error) }))
     throw new AuthFailure(503, 'Unable to reach Cloudflare Access signing keys')
   }
+  if (response.status >= 300 && response.status < 400) throw new AuthFailure(503, 'Cloudflare Access signing keys returned a redirect')
   if (!response.ok) throw new AuthFailure(503, 'Cloudflare Access signing keys returned HTTP ' + response.status)
   let body
   try { body = await response.json() } catch { throw new AuthFailure(503, 'Cloudflare Access signing keys returned invalid JSON') }

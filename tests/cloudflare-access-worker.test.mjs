@@ -133,8 +133,47 @@ test('JWKS fetch failures expose only safe diagnostic categories and fail closed
     event: 'access_jwks_fetch_failed',
     error_kind: 'network_error',
     cause_category: 'connection_reset',
+    message_category: 'unclassified',
   })
   assert.doesNotMatch(warnings.join('\n'), /sensitive|token/i)
+})
+
+test('JWKS redirects are returned manually and rejected without following them', async () => {
+  const signer = await makeSigner()
+  let requestOptions
+  const gateway = createCloudflareMcpGateway({
+    fetchImpl: async (_input, init) => {
+      requestOptions = init
+      return Response.redirect('https://redirect-target.example/certs', 302)
+    },
+  })
+
+  const response = await gateway.fetch(request(await signer.sign()), ENV)
+
+  assert.equal(response.status, 503)
+  assert.equal(requestOptions.redirect, 'manual')
+})
+
+test('JWKS fetch diagnostics classify known runtime messages without logging message text', async () => {
+  const signer = await makeSigner()
+  const warnings = []
+  const originalWarn = console.warn
+  console.warn = message => warnings.push(message)
+  try {
+    const gateway = createCloudflareMcpGateway({
+      fetchImpl: async () => { throw new TypeError('Network connection lost') },
+    })
+    const response = await gateway.fetch(request(await signer.sign()), ENV)
+    assert.equal(response.status, 503)
+  } finally {
+    console.warn = originalWarn
+  }
+  assert.deepEqual(JSON.parse(warnings[0]), {
+    event: 'access_jwks_fetch_failed',
+    error_kind: 'network_error',
+    message_category: 'network_connection_lost',
+  })
+  assert.doesNotMatch(warnings.join('\n'), /Network connection lost/i)
 })
 
 test('missing, tampered, expired, wrong-issuer, wrong-audience and non-RS256 assertions fail closed', async () => {
