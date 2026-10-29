@@ -127,7 +127,7 @@ After configuring a dedicated non-production hostname, run the optional unauthen
 WHALE_RUN_CLOUDFLARE_SMOKE=1 WHALE_CLOUDFLARE_TEST_URL=https://mcp-test.example.com npm run cloudflare:smoke
 ~~~
 
-The script performs only a GET to OAuth authorization-server metadata and a POST without credentials to the protected /mcp endpoint. It expects valid HTTPS authorization/token endpoints and a 401 response with WWW-Authenticate from Access. It never logs in, requests tokens, sends credentials, calls an MCP tool, or changes Cloudflare configuration. It is a discovery/challenge check, not a substitute for a browser-based OAuth authorization-code flow or a real hosted Agent connection.
+The script performs a GET to OAuth authorization-server metadata, a POST without credentials to the protected /mcp endpoint, then a GET to the same-origin protected-resource metadata URL named by Access in `WWW-Authenticate`. It verifies HTTPS issuer/authorization/token endpoints, that authorization/token endpoint origins match the issuer, and that the protected-resource metadata names this resource and an authorization server matching the issuer. It rejects off-origin metadata URLs. It never logs in, requests tokens, sends credentials, calls an MCP tool, or changes Cloudflare configuration. It is a discovery/challenge check, not a substitute for a browser-based OAuth authorization-code flow or a real hosted Agent connection.
 
 ### Required Cloudflare configuration
 
