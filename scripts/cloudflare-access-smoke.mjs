@@ -31,10 +31,9 @@ export async function runCloudflareAccessSmoke({ baseUrl, fetchImpl = fetch } = 
   if (!metadataResponse.ok) throw new Error('OAuth metadata endpoint returned HTTP ' + metadataResponse.status)
   let metadata
   try { metadata = await metadataResponse.json() } catch { throw new Error('OAuth metadata endpoint returned invalid JSON') }
-  if (!metadata || !validHttpsEndpoint(metadata.authorization_endpoint) || !validHttpsEndpoint(metadata.token_endpoint)) {
-    throw new Error('OAuth metadata must contain HTTPS authorization_endpoint and token_endpoint')
+  if (!metadata || !validHttpsEndpoint(metadata.issuer) || !validHttpsEndpoint(metadata.authorization_endpoint) || !validHttpsEndpoint(metadata.token_endpoint)) {
+    throw new Error('OAuth metadata must contain HTTPS issuer, authorization_endpoint, and token_endpoint')
   }
-  if (metadata.issuer !== undefined && !validHttpsEndpoint(metadata.issuer)) throw new Error('OAuth metadata issuer must be HTTPS')
 
   let protectedResponse
   try {
@@ -60,12 +59,47 @@ export async function runCloudflareAccessSmoke({ baseUrl, fetchImpl = fetch } = 
   if (protectedResponse.status !== 401 || !challenge) {
     throw new Error('Unauthenticated MCP probe must return HTTP 401 with WWW-Authenticate; got HTTP ' + protectedResponse.status)
   }
+  const resourceMatch = /resource_metadata="([^"]+)"/i.exec(challenge)
+  if (!resourceMatch) throw new Error('Access challenge must include a resource_metadata URL')
+  let resourceMetadataUrl
+  try { resourceMetadataUrl = new URL(resourceMatch[1]) } catch { throw new Error('Access resource_metadata URL is invalid') }
+  if (resourceMetadataUrl.protocol !== 'https:' || resourceMetadataUrl.origin !== origin || resourceMetadataUrl.username || resourceMetadataUrl.password || resourceMetadataUrl.hash) {
+    throw new Error('Access resource_metadata must use the same HTTPS origin as the MCP endpoint')
+  }
+  let resourceResponse
+  try {
+    resourceResponse = await fetchImpl(resourceMetadataUrl, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch {
+    throw new Error('OAuth protected-resource metadata endpoint is unreachable')
+  }
+  if (!resourceResponse.ok) throw new Error('Protected-resource metadata endpoint returned HTTP ' + resourceResponse.status)
+  let resourceMetadata
+  try { resourceMetadata = await resourceResponse.json() } catch { throw new Error('Protected-resource metadata endpoint returned invalid JSON') }
+  if (!resourceMetadata || typeof resourceMetadata.resource !== 'string'
+      || new URL(resourceMetadata.resource).origin !== origin
+      || !Array.isArray(resourceMetadata.authorization_servers)
+      || resourceMetadata.authorization_servers.length === 0
+      || !resourceMetadata.authorization_servers.every(validHttpsEndpoint)) {
+    throw new Error('Protected-resource metadata must identify this resource and HTTPS authorization_servers')
+  }
+  const issuerUrl = new URL(metadata.issuer)
+  const authorizationServers = resourceMetadata.authorization_servers.map(value => new URL(value))
+  if (!authorizationServers.some(value => value.origin === issuerUrl.origin)) {
+    throw new Error('OAuth issuer does not match any protected-resource authorization_server')
+  }
   return {
     ok: true,
     origin,
-    issuer: typeof metadata.issuer === 'string' ? metadata.issuer : null,
+    issuer: metadata.issuer,
     authorizationEndpoint: metadata.authorization_endpoint,
     tokenEndpoint: metadata.token_endpoint,
+    resourceMetadataUrl: resourceMetadataUrl.href,
+    authorizationServers: resourceMetadata.authorization_servers,
     protectedMcpChallenge: challenge.slice(0, 300),
     noCredentialsSent: true,
   }
