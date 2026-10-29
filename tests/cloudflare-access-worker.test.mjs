@@ -109,6 +109,34 @@ test('valid Access assertion proxies to one fixed HTTPS origin using only the or
   assert.equal(fixture.jwksCalls, 1)
 })
 
+test('JWKS fetch failures expose only safe diagnostic categories and fail closed', async () => {
+  const signer = await makeSigner()
+  const warnings = []
+  const originalWarn = console.warn
+  console.warn = message => warnings.push(message)
+  let response
+  try {
+    const gateway = createCloudflareMcpGateway({
+      fetchImpl: async () => {
+        throw new TypeError('sensitive URL and token must not be logged', {
+          cause: { code: 'ECONNRESET', message: 'sensitive network detail must not be logged' },
+        })
+      },
+    })
+    response = await gateway.fetch(request(await signer.sign()), ENV)
+  } finally {
+    console.warn = originalWarn
+  }
+  assert.equal(response.status, 503)
+  assert.equal(warnings.length, 1)
+  assert.deepEqual(JSON.parse(warnings[0]), {
+    event: 'access_jwks_fetch_failed',
+    error_kind: 'network_error',
+    cause_category: 'connection_reset',
+  })
+  assert.doesNotMatch(warnings.join('\n'), /sensitive|token/i)
+})
+
 test('missing, tampered, expired, wrong-issuer, wrong-audience and non-RS256 assertions fail closed', async () => {
   const signer = await makeSigner()
   const fixture = gatewayWithSigner(signer)

@@ -1,6 +1,26 @@
 const JWKS_TTL_MS = 5 * 60 * 1000
 const MAX_REQUEST_BYTES = 1_000_000
 const ACCESS_ASSERTION_HEADER = 'cf-access-jwt-assertion'
+const JWKS_FETCH_CAUSE_CATEGORIES = new Map([
+  ['ECONNREFUSED', 'connection_refused'],
+  ['ECONNRESET', 'connection_reset'],
+  ['ETIMEDOUT', 'connection_timeout'],
+  ['ENOTFOUND', 'dns_failure'],
+  ['EAI_AGAIN', 'dns_failure'],
+  ['EHOSTUNREACH', 'network_unreachable'],
+  ['ENETUNREACH', 'network_unreachable'],
+  ['CERT_HAS_EXPIRED', 'tls_failure'],
+  ['ERR_TLS_CERT_ALTNAME_INVALID', 'tls_failure'],
+  ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'tls_failure'],
+])
+
+function jwksFetchFailureDetails(error) {
+  const errorKind = error?.name === 'AbortError' || error?.name === 'TimeoutError'
+    ? 'timeout'
+    : error?.name === 'TypeError' ? 'network_error' : 'other'
+  const causeCategory = JWKS_FETCH_CAUSE_CATEGORIES.get(error?.cause?.code)
+  return { error_kind: errorKind, ...(causeCategory ? { cause_category: causeCategory } : {}) }
+}
 
 class AuthFailure extends Error {
   constructor(status, message) {
@@ -56,7 +76,8 @@ async function getJwks(issuer, fetchImpl, cache, now, forceRefresh = false) {
   const cached = cache.get(url)
   if (!forceRefresh && cached && now() - cached.at < JWKS_TTL_MS) return cached.keys
   let response
-  try { response = await fetchImpl(url, { method: 'GET', headers: { accept: 'application/json' }, redirect: 'error' }) } catch {
+  try { response = await fetchImpl(url, { method: 'GET', headers: { accept: 'application/json' }, redirect: 'error' }) } catch (error) {
+    console.warn(JSON.stringify({ event: 'access_jwks_fetch_failed', ...jwksFetchFailureDetails(error) }))
     throw new AuthFailure(503, 'Unable to reach Cloudflare Access signing keys')
   }
   if (!response.ok) throw new AuthFailure(503, 'Cloudflare Access signing keys returned HTTP ' + response.status)
