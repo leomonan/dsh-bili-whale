@@ -76,7 +76,11 @@ async function verifyAssertion(token, env, fetchImpl, cache, now) {
   if (parts.length !== 3) throw new AuthFailure(401, 'Invalid Cloudflare Access assertion')
   const header = decodeJsonSegment(parts[0])
   const claims = decodeJsonSegment(parts[1])
-  if (!header || header.alg !== 'RS256' || typeof header.kid !== 'string' || !header.kid) throw new AuthFailure(401, 'Unsupported Cloudflare Access assertion signing algorithm')
+  if (!header || header.alg !== 'RS256' || typeof header.kid !== 'string' || !header.kid
+      || header.crit !== undefined || header.b64 === false
+      || ['jku', 'jwk', 'x5u', 'x5c'].some(name => Object.prototype.hasOwnProperty.call(header, name))) {
+    throw new AuthFailure(401, 'Unsupported Cloudflare Access assertion header')
+  }
   if (!claims || claims.iss !== issuer || !validAudience(claims.aud, audience)) throw new AuthFailure(401, 'Cloudflare Access assertion issuer or audience mismatch')
   const nowSeconds = Math.floor(now() / 1000)
   if (!Number.isFinite(claims.exp) || claims.exp <= nowSeconds

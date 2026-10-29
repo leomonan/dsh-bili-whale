@@ -122,6 +122,9 @@ test('missing, tampered, expired, wrong-issuer, wrong-audience and non-RS256 ass
     [await signer.sign({ iss: 'https://attacker.cloudflareaccess.com' }), {}, 401],
     [await signer.sign({ aud: ['other-audience'] }), {}, 401],
     [await signer.sign({}, { alg: 'none' }), {}, 401],
+    [await signer.sign({}, { crit: ['custom'] }), {}, 401],
+    [await signer.sign({}, { b64: false }), {}, 401],
+    [await signer.sign({}, { jku: 'https://attacker.example/jwks.json' }), {}, 401],
   ]
   for (const [token, extra, expectedStatus] of cases) {
     const response = await fixture.gateway.fetch(request(token, extra), fixture.env)
