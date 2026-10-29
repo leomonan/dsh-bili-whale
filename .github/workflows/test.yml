@@ -31,3 +31,5 @@ jobs:
           fi
       - name: Run existing test suite
         run: npm test
+      - name: Bundle Cloudflare Worker without deploying
+        run: npx --yes wrangler@4 deploy --dry-run --outdir /tmp/whale-worker-build --config wrangler.example.jsonc
