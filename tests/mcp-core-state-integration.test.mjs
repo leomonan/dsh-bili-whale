@@ -20,7 +20,7 @@ test('real HTTP and stdio MCP entrypoints share the Core queue and private memor
     WHALE_PLATFORM: 'rss',
     WHALE_HOME: platformHome,
     WHALE_CORE_HOME: coreHome,
-    WHALE_RSS_FEEDS: '[]',
+    WHALE_RSS_FEEDS: JSON.stringify([{ name: 'Local Test Feed', url: 'https://feeds.example.com/rss.xml' }]),
     WHALE_MCP_HOST: '127.0.0.1',
     WHALE_MCP_PORT: '0',
     WHALE_MCP_AUTH_TOKEN: TOKEN,
