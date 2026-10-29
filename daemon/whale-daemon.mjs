@@ -99,6 +99,7 @@ async function main() {
     toolRegistry: registry,
     platformId: platformRuntime.id,
     getPersona: () => personaText(userHome, configFile),
+    getRecordedDiary: runId => memoryStore.getRecordedDiary(runId),
     setActiveRunId: id => { activeRunId = id },
   })
 

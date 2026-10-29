@@ -114,3 +114,18 @@ test('shared core memory can read a legacy public diary from the selected platfo
   assert.match(shared.readPrivateDiary().text, /Shared across platforms/)
   assert.equal(fs.existsSync(path.join(platformHome, 'whale-agent-memory.jsonl')), false)
 })
+
+
+test('read-only durable diary receipt lookup distinguishes absent, private, and public runs', t => {
+  const f = fixture(t)
+  assert.equal(f.store.getRecordedDiary('missing-run'), null)
+  f.store.recordDiary({ runId: 'recover-private', entry: 'One saved reflection.', visibility: 'private', platform: 'rss' })
+  const found = f.store.getRecordedDiary('recover-private')
+  assert.equal(found.runId, 'recover-private')
+  assert.equal(found.platform, 'rss')
+  assert.equal(found.visibility, 'private')
+  assert.equal(found.entry, 'One saved reflection.')
+  f.store.recordDiary({ runId: 'recover-public', entry: 'Public entry', visibility: 'public', platform: 'rss' })
+  assert.equal(f.store.getRecordedDiary('recover-public').visibility, 'public')
+  assert.throws(() => f.store.getRecordedDiary('../invalid'), /valid runId/)
+})

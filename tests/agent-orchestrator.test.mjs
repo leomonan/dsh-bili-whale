@@ -159,3 +159,69 @@ test('orchestrator refuses to count a public diary collision as private run comp
   const orchestrator = createAgentOrchestrator({ modelClient, toolRegistry, platformId: 'rss' })
   await assert.rejects(orchestrator.runOnce({ runId: 'public-collision' }), /without recording a diary/)
 })
+
+
+test('a durable private diary receipt completes a restarted run without another model call', async () => {
+  let modelCalls = 0
+  const calls = []
+  const f = createAgentOrchestrator({
+    modelClient: { complete: async () => { modelCalls += 1; throw new Error('The model must not run again') } },
+    toolRegistry: registry(calls),
+    platformId: 'rss',
+    getRecordedDiary: runId => ({
+      runId, visibility: 'private', platform: 'rss', entry: 'Already recorded before restart.',
+    }),
+  })
+  const result = await f.runOnce({ action: 'wake', runId: 'wake-retry' })
+  assert.equal(result.diaryRecorded, true)
+  assert.equal(result.recovered, true)
+  assert.equal(result.toolCalls, 0)
+  assert.equal(result.usage.total_tokens, 0)
+  assert.equal(modelCalls, 0)
+  assert.equal(calls.length, 0)
+})
+
+test('a public or mismatched-platform diary collision blocks model replay', async () => {
+  for (const receipt of [
+    { runId: 'wake-retry', visibility: 'public', platform: 'rss' },
+    { runId: 'wake-retry', visibility: 'private', platform: 'bilibili' },
+  ]) {
+    const f = createAgentOrchestrator({
+      modelClient: { complete: async () => { throw new Error('Never invoke model for a conflicting receipt') } },
+      toolRegistry: registry([]),
+      platformId: 'rss',
+      getRecordedDiary: () => receipt,
+    })
+    await assert.rejects(f.runOnce({ runId: 'wake-retry' }), /Conflicting durable diary receipt/)
+  }
+})
+
+test('model completion fails closed when a duplicate diary response differs in content', async () => {
+  const calls = []
+  const base = registry(calls)
+  const toolRegistry = {
+    listTools: () => base.listTools(),
+    async callTool(name, args) {
+      if (name === 'whale_record_diary') {
+        return { content: [{ type: 'text', text: JSON.stringify({
+          recorded: false, duplicate: true, runId: 'retry-diary',
+          visibility: 'private', platform: 'rss',
+          existingEntry: 'Original memory', existingMood: 'calm',
+        }) }] }
+      }
+      return base.callTool(name, args)
+    },
+  }
+  let step = 0
+  const f = createAgentOrchestrator({
+    modelClient: { complete: async () => {
+      step += 1
+      return step === 1
+        ? answer([call('1', 'whale_record_diary', { entry: 'Different memory', mood: 'calm' })])
+        : answer(null, 'Done')
+    } },
+    toolRegistry,
+    platformId: 'rss',
+  })
+  await assert.rejects(f.runOnce({ runId: 'retry-diary' }), /without recording a diary/)
+})
