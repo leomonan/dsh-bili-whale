@@ -44,6 +44,7 @@
     "lib",
     "tools",
     "scripts",
+    "workers",
     "cordis.patch.yml",
     "README.md",
     "tests",
