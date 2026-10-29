@@ -89,6 +89,8 @@ test('valid Access assertion proxies to one fixed HTTPS origin using only the or
       cookie: 'session=secret',
       'x-forwarded-host': 'attacker.example',
       'x-internal-admin': 'yes',
+      'cf-access-client-id': 'attacker-supplied-id',
+      'cf-access-client-secret': 'attacker-supplied-secret',
     },
   }), fixture.env)
   assert.equal(response.status, 200)
@@ -97,6 +99,8 @@ test('valid Access assertion proxies to one fixed HTTPS origin using only the or
   assert.equal(fixture.upstreamCall.headers.get('authorization'), 'Bearer ' + ORIGIN_TOKEN)
   assert.equal(fixture.upstreamCall.headers.get('cf-access-client-id'), ENV.CF_ACCESS_ORIGIN_CLIENT_ID)
   assert.equal(fixture.upstreamCall.headers.get('cf-access-client-secret'), ENV.CF_ACCESS_ORIGIN_CLIENT_SECRET)
+  assert.notEqual(fixture.upstreamCall.headers.get('cf-access-client-id'), 'attacker-supplied-id')
+  assert.notEqual(fixture.upstreamCall.headers.get('cf-access-client-secret'), 'attacker-supplied-secret')
   assert.equal(fixture.upstreamCall.headers.get('cf-access-jwt-assertion'), null)
   assert.equal(fixture.upstreamCall.headers.get('cookie'), null)
   assert.equal(fixture.upstreamCall.headers.get('origin'), null)
